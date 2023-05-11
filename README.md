@@ -6,6 +6,7 @@ Python EAS SAME Alert Message Decoder
 **DO NOT RELY ON THIS PROGRAM WHEN LOSS, DAMAGE, INJURY OR DEATH MAY OCCUR!**
 
 ###NOTICE
+
 This program was originally written by [cuppa_joe](https://github.com/cuppa-joe/dsame), and was rewritten to include new updates and upgrade compatibility so others can modify the code without the headache of trying to work with Python 2.7. THIS IS NOT MY ORIGINAL CODE! I have modified it, and I will be updating it as necessary, since updates seem to have stopped on the original repository. 
 
 ###Requirements
