@@ -100,7 +100,9 @@ TRA | Tropical Storm Watch         |TRW | Tropical Storm Warning
 TSA | Tsunami Watch                |TSW | Tsunami Warning
 VOW | Volcano Warning              |WFA | Wild Fire Watch
 WFW | Wild Fire Warning            |WSA | Winter Storm Watch
-WSW | Winter Storm Warning         |    |
+WSW | Winter Storm Warning         |SQW | Snow Squall Warning*
+
+* Snow Squall Warnings are not conveyed to the EAS, however, it was added just in case/for futureproofing.
 
 An alert must match one of each specified alert type in order to be processed. If an alert type is omitted, any alert will match that type. In most cases, using only SAME codes to filter alerts will be the best option.
 
