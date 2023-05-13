@@ -5841,6 +5841,7 @@ SAME__EEE={
     'CFA' : 'Coastal Flood Watch',
     'CFW' : 'Coastal Flood Warning',
     'DSW' : 'Dust Storm Warning',
+    'EWW' : 'Extreme Wind Warning',
     'FFA' : 'Flash Flood Watch',
     'FFW' : 'Flash Flood Warning',
     'FFS' : 'Flash Flood Statement',
@@ -5855,6 +5856,7 @@ SAME__EEE={
     'SVA' : 'Severe Thunderstorm Watch',
     'SVR' : 'Severe Thunderstorm Warning',
     'SVS' : 'Severe Weather Statement',
+    'SQW' : 'Snow Squall Warning'
     'SMW' : 'Special Marine Warning',
     'SPS' : 'Special Weather Statement',
     'TOA' : 'Tornado Watch',
@@ -5892,7 +5894,6 @@ SAME__EEE={
     'VOW' : 'Volcano Warning',
     'NMN' : 'Network Message Notification',
     'DMO' : 'Demo Warning',
-    'EWW' : 'Extreme Wind Warning',
     'SSA' : 'Storm Surge Watch',
     'SSW' : 'Storm Surge Warning',
     'FSW' :	'Flash Freeze Warning',
