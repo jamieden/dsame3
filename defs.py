@@ -5856,7 +5856,7 @@ SAME__EEE={
     'SVA' : 'Severe Thunderstorm Watch',
     'SVR' : 'Severe Thunderstorm Warning',
     'SVS' : 'Severe Weather Statement',
-    'SQW' : 'Snow Squall Warning'
+    'SQW' : 'Snow Squall Warning',
     'SMW' : 'Special Marine Warning',
     'SPS' : 'Special Weather Statement',
     'TOA' : 'Tornado Watch',
