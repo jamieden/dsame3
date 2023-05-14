@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 #
 # Copyright (C) 2017 Joseph W. Metcalf
+# Modified by James Kitchens 2023 (ADD MODIFICATIONS)
 #
 # Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
 # granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -30,7 +31,7 @@ import numpy as np
 
 # Constants
 SAMPLE_RATE = 44100  # Sample rate (Hz)
-CHANNELS = 2        # Number of audio channels
+CHANNELS = 2  # Number of audio channels
 FILE_NAME = 'recording.wav'  # Output file name
 
 # Recording state
@@ -38,12 +39,13 @@ is_recording = 0
 file = None
 stream = None
 
-
 # Callback function for audio input
 recorded_frames = []
 
+
 def callback(indata, frames, time, status):
     recorded_frames.append(indata.copy())
+
 
 def set_is_recording(data):
     global is_recording
@@ -67,7 +69,8 @@ def set_FILE_NAME(alert, path):
     h = current_dateTime.strftime("%I")
     m = current_dateTime.strftime("%M")
     apm = current_dateTime.strftime("%p")
-    FILE_NAME = str(path[0]) + '\\' + str(mn) + '-' + str(d) + '-' + str(y) + '_' + str(h) + '-' + str(m) + '-' + str(apm) + '_' + str(
+    FILE_NAME = str(path[0]) + '\\' + str(mn) + '-' + str(d) + '-' + str(y) + '_' + str(h) + '-' + str(m) + '-' + str(
+        apm) + '_' + str(
         event) + '.wav'
     # FILE_NAME = str(current_dateTime.year) + '-' + str(current_dateTime.month) + '-' + str(current_dateTime.day) + '_' + str(current_dateTime.hour) + '-' + str(current_dateTime.minute) + '_' + str(event) +'.wav'
 
@@ -103,7 +106,7 @@ def get_length(TTTT):
     return ' '.join(filter(None, (time_str(int(hh)), time_str(int(mm), type='minute'))))
 
 
-def county_decode(input, COUNTRY):
+def county_decode(input, COUNTRY, LANG):
     """Convert SAME county/geographic code to text list"""
     P, SS, CCC, SSCCC = input[:1], input[1:3], input[3:], input[1:]
     if COUNTRY == 'US':
@@ -112,10 +115,27 @@ def county_decode(input, COUNTRY):
         else:
             SAME__LOC = defs.SAME_LOCA
         if CCC == '000':
-            county = 'ALL'
+            if LANG == 'EN':
+                county = 'ALL'
+            else:
+                county = 'TODOS'
         else:
             county = defs.US_SAME_CODE[SSCCC]
         return [' '.join(filter(None, (SAME__LOC[P], county))), defs.US_SAME_AREA[SS]]
+    elif COUNTRY == 'MX':
+        if SSCCC in defs.SAME_CTYB:
+            SAME__LOC = defs.SAME_LOCB
+        else:
+            SAME__LOC = defs.SAME_LOCA
+            if CCC == '000':
+                if LANG == 'EN':
+                    county = 'COUNTRYWIDE'
+                else:
+                    county = 'EN TODO EL PAIS'
+            else:
+                county = defs.MX_SAME_CODE[SSCCC]
+            return [' '.join(filter(None, (SAME__LOC[P], county))), defs.MX_SAME_AREA[SS]]
+
     else:
         if CCC == '000':
             county = 'ALL'
@@ -124,7 +144,7 @@ def county_decode(input, COUNTRY):
         return [county, defs.CA_SAME_AREA[SS]]
 
 
-def get_division(input, COUNTRY='US'):
+def get_division(input, COUNTRY='US', LANG='EN'):
     if COUNTRY == 'US':
         try:
             DIVISION = defs.FIPS_DIVN[input]
@@ -132,6 +152,21 @@ def get_division(input, COUNTRY='US'):
                 DIVISION = 'areas'
         except:
             DIVISION = 'counties'
+    elif COUNTRY == 'MX':
+        if LANG == 'EN':
+            try:
+                DIVISION = defs.FIPS_DIVN[input]
+                if not DIVISION:
+                    DIVISION = 'areas'
+            except:
+                DIVISION = 'municipalities'
+        else:
+            try:
+                DIVISION = defs.FIPS_DIVN[input]
+                if not DIVISION:
+                    DIVISION = 'áreas'
+            except:
+                DIVISION = 'municipios'
     else:
         DIVISION = 'areas'
     return DIVISION
@@ -139,8 +174,12 @@ def get_division(input, COUNTRY='US'):
 
 def get_event(input):
     event = None
+    args = parse_arguments()
     try:
-        event = defs.SAME__EEE[input]
+        if args.lang == 'SP':
+            event = defs.SAME__EEE__SP[input]
+        else:
+            event = defs.SAME__EEE[input]
     except:
         if input[2:] in 'WAESTMN':
             event = ' '.join(['Unknown', defs.SAME_UEEE[input[2:]]])
@@ -207,7 +246,7 @@ def format_message(command, ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHM
     return command.format(ORG=ORG, EEE=EEE, TTTT=TTTT, JJJHHMM=JJJHHMM, STATION=STATION, TYPE=TYPE, LLLLLLLL=LLLLLLLL,
                           COUNTRY=COUNTRY, LANG=LANG, event=get_event(EEE), type=get_indicator(EEE),
                           end=fn_dt(alert_end(JJJHHMM, TTTT)), start=fn_dt(alert_start(JJJHHMM)),
-                          organization=defs.SAME__ORG[ORG]['NAME'][COUNTRY], PSSCCC='-'.join(PSSCCC),
+                          organization=defs.SAME__ORG[LANG][ORG]['NAME'][COUNTRY], PSSCCC='-'.join(PSSCCC),
                           location=get_location(STATION, TYPE), date=fn_dt(datetime.datetime.now(), '%c'),
                           length=get_length(TTTT), seconds=alert_length(TTTT), MESSAGE=MESSAGE, **kwargs)
 
@@ -219,15 +258,15 @@ def readable_message(ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHMM='0010
     location = get_location(STATION, TYPE)
     MSG = [format_message(defs.MSG__TEXT[LANG]['MSG1'], ORG=ORG, EEE=EEE, TTTT=TTTT, JJJHHMM=JJJHHMM, STATION=STATION,
                           TYPE=TYPE, COUNTRY=COUNTRY, LANG=LANG,
-                          article=defs.MSG__TEXT[LANG][defs.SAME__ORG[ORG]['ARTICLE'][COUNTRY]].title(),
-                          has=defs.MSG__TEXT[LANG]['HAS'] if not defs.SAME__ORG[ORG]['PLURAL'] else
+                          article=defs.MSG__TEXT[LANG][defs.SAME__ORG[LANG][ORG]['ARTICLE'][COUNTRY]].title(),
+                          has=defs.MSG__TEXT[LANG]['HAS'] if not defs.SAME__ORG[LANG][ORG]['PLURAL'] else
                           defs.MSG__TEXT[LANG]['HAVE'],
                           preposition=defs.MSG__TEXT[LANG]['IN'] if location != '' else '')]
     current_state = None
     for idx, item in enumerate(PSSCCC):
-        county, state = county_decode(item, COUNTRY)
+        county, state = county_decode(item, COUNTRY, LANG)
         if current_state != state:
-            DIVISION = get_division(PSSCCC[idx][1:3], COUNTRY)
+            DIVISION = get_division(PSSCCC[idx][1:3], COUNTRY, LANG)
             output = defs.MSG__TEXT[LANG]['MSG2'].format(conjunction='' if idx == 0 else defs.MSG__TEXT[LANG]['AND'],
                                                          state=state, division=DIVISION)
             MSG += [''.join(output)]
@@ -238,6 +277,7 @@ def readable_message(ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHMM='0010
     MSG += [defs.MSG__TEXT[LANG]['MSG4']]
     MSG += [''.join(['(', LLLLLLLL, ')'])]
     output = textwrap.wrap(''.join(MSG), 78)
+
     for item in output:
         printf(item)
     printf()
@@ -318,6 +358,7 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
             logging.debug(' '.join(['   SAME Codes found >', str(len(PSSCCC_list))]))
             US_bad_list = []
             CA_bad_list = []
+            MX_bad_list = []
             for code in PSSCCC_list:
                 try:
                     county = defs.US_SAME_CODE[code[1:]]
@@ -327,18 +368,29 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     county = defs.CA_SAME_CODE[code[1:]]
                 except KeyError:
                     CA_bad_list.append(code)
-            if len(US_bad_list) < len(CA_bad_list):
+                try:
+                    county = defs.MX_SAME_CODE[code[1:]]
+                except KeyError:
+                    MX_bad_list.append(code)
+            if len(US_bad_list) < len(CA_bad_list) and len(US_bad_list) < len(MX_bad_list):
                 COUNTRY = 'US'
-            if len(US_bad_list) > len(CA_bad_list):
+            if len(US_bad_list) > len(CA_bad_list) and len(CA_bad_list) < len(MX_bad_list):
                 COUNTRY = 'CA'
-            if len(US_bad_list) == len(CA_bad_list):
+            if len(US_bad_list) > len(MX_bad_list) and len(CA_bad_list) > len(MX_bad_list):
+                COUNTRY = 'MX'
+            if len(US_bad_list) == len(MX_bad_list) and len(US_bad_list) == len(CA_bad_list):
                 if type == 'CA':
                     COUNTRY = 'CA'
+                elif type == 'MX':
+                    COUNTRY = 'MX'
                 else:
                     COUNTRY = 'US'
+            #COUNTRY = defs.COUNTRY
             if COUNTRY == 'CA':
                 bad_list = CA_bad_list
-            else:
+            elif COUNTRY == 'MX':
+                bad_list = MX_bad_list
+            elif COUNTRY == 'US':
                 bad_list = US_bad_list
             logging.debug(' '.join(['Invalid Codes found >', str(len(bad_list)), ', '.join(bad_list)]))
             logging.debug(' '.join(['            Country >', COUNTRY]))
@@ -362,21 +414,22 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                             stream.start()
                 else:
                     MESSAGE = None
-                    if not is_recording:
-                        # Start recording
-                        # sys.stdout.write(str(get_is_recording()))
-                        # sys.stdout.write('\n')
-                        sys.stdout.write('Recording started. ')
-                        set_is_recording(1)
-                        set_FILE_NAME(EEE, args.record)
-                        sys.stdout.write(FILE_NAME)
-                        #printf(FILE_NAME)
-                        sys.stdout.write('\n')
-                        # sys.stdout.write(str(get_is_recording()))
-                        # sys.stdout.write('\n')
-                        #file = sf.SoundFile(FILE_NAME, 'w', format='WAV', samplerate=SAMPLE_RATE, channels=CHANNELS)
-                        stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
-                        stream.start()
+                    if args.record:
+                        if not is_recording:
+                            # Start recording
+                            # sys.stdout.write(str(get_is_recording()))
+                            # sys.stdout.write('\n')
+                            sys.stdout.write('Recording started. ')
+                            set_is_recording(1)
+                            set_FILE_NAME(EEE, args.record)
+                            sys.stdout.write(FILE_NAME)
+                            # printf(FILE_NAME)
+                            sys.stdout.write('\n')
+                            # sys.stdout.write(str(get_is_recording()))
+                            # sys.stdout.write('\n')
+                            # file = sf.SoundFile(FILE_NAME, 'w', format='WAV', samplerate=SAMPLE_RATE, channels=CHANNELS)
+                            stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
+                            stream.start()
                 if jsonfile:
                     try:
                         import json
@@ -384,7 +437,7 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                                       LLLLLLLL=LLLLLLLL, COUNTRY=COUNTRY, LANG=lang, event=get_event(EEE),
                                       type=get_indicator(EEE), end=fn_dt(alert_end(JJJHHMM, TTTT)),
                                       start=fn_dt(alert_start(JJJHHMM)),
-                                      organization=defs.SAME__ORG[ORG]['NAME'][COUNTRY], PSSCCC=PSSCCC,
+                                      organization=defs.SAME__ORG[lang][ORG]['NAME'][COUNTRY], PSSCCC=PSSCCC,
                                       PSSCCC_list=PSSCCC_list, location=get_location(STATION, TYPE),
                                       date=fn_dt(datetime.datetime.now(), '%c'), length=get_length(TTTT),
                                       seconds=alert_length(TTTT), MESSAGE=MESSAGE)
@@ -415,26 +468,28 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 logging.warning('Valid identifer not found.')
                 return
             else:
-                if is_recording:
-                    # RECORDING STOP
-                    stream.stop()
-                    stream.close()
-                    #file.close()
-                    recorded_frames = np.concatenate(recorded_frames)
-                    # sys.stdout.write(str(get_is_recording()))
-                    # sys.stdout.write('\n')
-                    try:
-                        sf.write(FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
-                        sys.stdout.write('Recording stopped. File saved as ')
-                        sys.stdout.write(FILE_NAME)
-                        sys.stdout.write('\n')
-                        set_is_recording(0)
-                    except:
-                        sys.stdout.write('Error. Recording could not be saved. Please check your path and make sure it is correct and you have access. \n')
-                        set_is_recording(0)
-                        #return
-                    # sys.stdout.write(str(get_is_recording()))
-                    # sys.stdout.write('\n')
+                if args.record: 
+                    if is_recording:
+                        # RECORDING STOP
+                        stream.stop()
+                        stream.close()
+                        # file.close()
+                        recorded_frames = np.concatenate(recorded_frames)
+                        # sys.stdout.write(str(get_is_recording()))
+                        # sys.stdout.write('\n')
+                        try:
+                            sf.write(FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
+                            sys.stdout.write('Recording stopped. File saved as ')
+                            sys.stdout.write(FILE_NAME)
+                            sys.stdout.write('\n')
+                            set_is_recording(0)
+                        except:
+                            sys.stdout.write(
+                                'Error. Recording could not be saved. Please check your path and make sure it is correct and you have access. \n')
+                            set_is_recording(0)
+                            # return
+                        # sys.stdout.write(str(get_is_recording()))
+                        # sys.stdout.write('\n')
                 logging.debug(' '.join(['End of Message found >', 'NNNN', str(msgidx)]))
                 tail = same[msgidx:+len('NNNN')]
 
@@ -457,7 +512,8 @@ def parse_arguments():
     parser.add_argument('--command', nargs='*', help='command message')
     parser.add_argument('--json', help='write to json file')
     parser.add_argument('--source', help='source program')
-    parser.add_argument('--record', nargs='*', help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths can be either absolute or relative. ')
+    parser.add_argument('--record', nargs='*',
+                        help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths can be either absolute or relative. ')
     parser.set_defaults(text=True)
     args, unknown = parser.parse_known_args()
     return args
@@ -480,7 +536,7 @@ def main():
 
             if line:
                 line1 = line.decode('ascii')
-                logging.debug(line1) #ISSUE EXISTS IN THIS AREA
+                logging.debug(line1)  # ISSUE EXISTS IN THIS AREA
                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
                             call=args.call, command=args.command, jsonfile=args.json)
     else:
