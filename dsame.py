@@ -1,7 +1,11 @@
 #!/usr/bin/env python
 #
 # Copyright (C) 2017 Joseph W. Metcalf
-# Modified by James Kitchens 2023 (ADD MODIFICATIONS)
+# Modified by James Kitchens 2023
+#
+# Modifications include, but are not limited to, adding multiple language options, 
+# adding recording features for alerts, implementation of the Mexico SASMEX alert system, 
+# adding missing data to the ICAO list, implementing proper country detection, and Python 3.x compatibility. 
 #
 # Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
 # granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -12,9 +16,6 @@
 # WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
 # USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-
-# C:\Python27\python.exe dsame.py --loglevel 10 --text --source scripts\source-soundcard-multimon-ng.bat
-# dsame.exe --source scripts\source-soundcard-multimon-ng.bat --loglevel 10
 
 import sys
 import defs
