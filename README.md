@@ -41,9 +41,12 @@ Option            | Description                                                 
 `loglevel`        | Set log level                                                         | `--loglevel 10`
 `text`, `no-text` | Output/Omit readable message text                                     | `--text`, `--no-text`
 `call`            | Call an external program                                              | `--call alert.sh`
+`lang`            | Selects the language for the program*                                 | `--lang EN`
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
 `source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
+
+* The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
 ###Usage
 
