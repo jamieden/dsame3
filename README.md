@@ -167,9 +167,9 @@ This [experimental Pushbullet channel](https://www.pushbullet.com/channel?tag=xo
 
 ###Known Issues
 
-* SASMEX/SARMEX, a Mexican system for seismic alerts, is not implemented due to lack of documentation.
-* A correct and complete list of ICAO location codes used by the National Weather Service messages is not available.
-* Country detection may not be reliable for some locations with duplicate SAME codes.
+* ~~SASMEX/SARMEX, a Mexican system for seismic alerts, is not implemented due to lack of documentation.~~ This issue has *HOPEFULLY* been resolved
+* ~~A correct and complete list of ICAO location codes used by the National Weather Service messages is not available.~~ This issue has *HOPEFULLY* been resolved
+* ~~Country detection may not be reliable for some locations with duplicate SAME codes.~~ This issue has *HOPEFULLY* been resolved
 * Date and time information may not be accurate when decoding old messages or messages from another time zone.
 * Multimon-ng will not decode the same alert in succession. This should only be an issue during testing and can be avoided by alternating test alerts.
 
