@@ -12,7 +12,7 @@ This program was originally written by [cuppa_joe](https://github.com/cuppa-joe/
 ###Requirements
 
 * [Python](https://www.python.org/) 3.11+
-* (OPTIONAL) A [weather radio](www.nws.noaa.gov/nwr/), [RTL-SDR](http://www.rtl-sdr.com/about-rtl-sdr/) or other receiving/source device
+* (OPTIONAL, UNLESS USING AUDIO DEMODULATION) A [weather radio](www.nws.noaa.gov/nwr/), [RTL-SDR](http://www.rtl-sdr.com/about-rtl-sdr/) or other receiving/source device (ex. Microphone)
 * A demodulator, such as [multimon-ng](https://github.com/EliasOenal/multimon-ng/) ([Windows binaries](https://github.com/cuppa-joe/multimon-ng/releases))
 
 ###Installation
