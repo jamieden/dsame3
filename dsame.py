@@ -3,9 +3,9 @@
 # Copyright (C) 2017 Joseph W. Metcalf
 # Modified by James Kitchens 2023
 #
-# Modifications include, but are not limited to, adding multiple language options, 
-# adding recording features for alerts, implementation of the Mexico SASMEX alert system, 
-# adding missing data to the ICAO list, implementing proper country detection, and Python 3.x compatibility. 
+# Modifications include, but are not limited to, adding multiple language options,
+# adding recording features for alerts, implementation of the Mexico SASMEX alert system,
+# adding missing data to the ICAO list, implementing proper country detection, and Python 3.x compatibility.
 #
 # Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
 # granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -62,15 +62,10 @@ def set_FILE_NAME(alert, path):
     current_dateTime = datetime.datetime.now()
     event = defs.SAME__EEE[alert]
     event = event.replace(' ', '-')
-    mn = current_dateTime.strftime("%m")
-    d = current_dateTime.strftime("%d")
-    y = current_dateTime.strftime("%Y")
-    h = current_dateTime.strftime("%I")
-    m = current_dateTime.strftime("%M")
-    apm = current_dateTime.strftime("%p")
-    FILE_NAME = str(path[0]) + '\\' + str(mn) + '-' + str(d) + '-' + str(y) + '_' + str(h) + '-' + str(m) + '-' + str(
-        apm) + '_' + str(
-        event) + '.wav'
+    FILE_NAME = (str(path[0]) + '\\' + str(current_dateTime.strftime("%m")) + '-' + str(current_dateTime.strftime("%d"))
+                 + '-' + str(current_dateTime.strftime("%Y")) + '_' + str(current_dateTime.strftime("%I")) + '-' +
+                 str(current_dateTime.strftime("%M")) + '-' + str(current_dateTime.strftime("%p")) + '_' + str(event)
+                 + '.wav')
 
 
 def alert_start(JJJHHMM, format1='%j%H%M'):
