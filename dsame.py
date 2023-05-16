@@ -23,9 +23,7 @@ import argparse
 import string
 import logging
 import datetime
-import time
 import subprocess
-
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
@@ -44,7 +42,7 @@ stream = None
 recorded_frames = []
 
 
-def callback(indata, frames, time, status):
+def callback(indata):
     recorded_frames.append(indata.copy())
 
 
@@ -73,20 +71,19 @@ def set_FILE_NAME(alert, path):
     FILE_NAME = str(path[0]) + '\\' + str(mn) + '-' + str(d) + '-' + str(y) + '_' + str(h) + '-' + str(m) + '-' + str(
         apm) + '_' + str(
         event) + '.wav'
-    # FILE_NAME = str(current_dateTime.year) + '-' + str(current_dateTime.month) + '-' + str(current_dateTime.day) + '_' + str(current_dateTime.hour) + '-' + str(current_dateTime.minute) + '_' + str(event) +'.wav'
 
 
-def alert_start(JJJHHMM, format='%j%H%M'):
+def alert_start(JJJHHMM, format1='%j%H%M'):
     import calendar
     """Convert EAS date string to datetime format"""
-    utc_dt = datetime.datetime.strptime(JJJHHMM, format).replace(datetime.datetime.utcnow().year)
+    utc_dt = datetime.datetime.strptime(JJJHHMM, format1).replace(datetime.datetime.utcnow().year)
     timestamp = calendar.timegm(utc_dt.timetuple())
     return datetime.datetime.fromtimestamp(timestamp)
 
 
-def fn_dt(dt, format='%I:%M %p'):
+def fn_dt(dt, format1='%I:%M %p'):
     """Return formated datetime"""
-    return dt.strftime(format)
+    return dt.strftime(format1)
 
 
 # ZCZC-ORG-EEE-PSSCCC-PSSCCC+TTTT-JJJHHMM-LLLLLLLL-
@@ -95,21 +92,21 @@ def format_error(info=''):
     logging.warning(' '.join(['INVALID FORMAT', info]))
 
 
-def time_str(x, type='hour'):
+def time_str(x, type1='hour'):
     if x == 1:
-        return ''.join([str(x), ' ', type])
+        return ''.join([str(x), ' ', type1])
     elif x >= 2:
-        return ''.join([str(x), ' ', type, 's'])
+        return ''.join([str(x), ' ', type1, 's'])
 
 
 def get_length(TTTT):
     hh, mm = TTTT[:2], TTTT[2:]
-    return ' '.join(filter(None, (time_str(int(hh)), time_str(int(mm), type='minute'))))
+    return ' '.join(filter(None, (time_str(int(hh)), time_str(int(mm), type1='minute'))))
 
 
-def county_decode(input, COUNTRY, LANG):
+def county_decode(input1, COUNTRY, LANG):
     """Convert SAME county/geographic code to text list"""
-    P, SS, CCC, SSCCC = input[:1], input[1:3], input[3:], input[1:]
+    P, SS, CCC, SSCCC = input1[:1], input1[1:3], input1[3:], input1[1:]
     if COUNTRY == 'US':
         if SSCCC in defs.SAME_CTYB:
             SAME__LOC = defs.SAME_LOCB
@@ -125,6 +122,7 @@ def county_decode(input, COUNTRY, LANG):
         return [' '.join(filter(None, (SAME__LOC[P], county))), defs.US_SAME_AREA[SS]]
     elif COUNTRY == 'MX':
         if SSCCC in defs.SAME_CTYB:
+            # noinspection PyUnusedLocal
             SAME__LOC = defs.SAME_LOCB
         else:
             SAME__LOC = defs.SAME_LOCA
@@ -136,34 +134,39 @@ def county_decode(input, COUNTRY, LANG):
             else:
                 county = defs.MX_SAME_CODE[SSCCC]
             return [' '.join(filter(None, (SAME__LOC[P], county))), defs.MX_SAME_AREA[SS]]
-
     else:
         if CCC == '000':
-            county = 'ALL'
+            if LANG == 'EN':
+                county = 'ALL'
+            else:
+                county = 'TODOS'
         else:
             county = defs.CA_SAME_CODE[SSCCC]
         return [county, defs.CA_SAME_AREA[SS]]
 
 
-def get_division(input, COUNTRY='US', LANG='EN'):
+def get_division(input1, COUNTRY='US', LANG='EN'):
     if COUNTRY == 'US':
+        # noinspection PyBroadException
         try:
-            DIVISION = defs.FIPS_DIVN[input]
+            DIVISION = defs.FIPS_DIVN[input1]
             if not DIVISION:
                 DIVISION = 'areas'
         except:
             DIVISION = 'counties'
     elif COUNTRY == 'MX':
         if LANG == 'EN':
+            # noinspection PyBroadException
             try:
-                DIVISION = defs.FIPS_DIVN[input]
+                DIVISION = defs.FIPS_DIVN[input1]
                 if not DIVISION:
                     DIVISION = 'areas'
             except:
                 DIVISION = 'municipalities'
         else:
+            # noinspection PyBroadException
             try:
-                DIVISION = defs.FIPS_DIVN[input]
+                DIVISION = defs.FIPS_DIVN[input1]
                 if not DIVISION:
                     DIVISION = 'áreas'
             except:
@@ -173,25 +176,27 @@ def get_division(input, COUNTRY='US', LANG='EN'):
     return DIVISION
 
 
-def get_event(input):
+def get_event(input1):
     event = None
     args = parse_arguments()
+    # noinspection PyBroadException
     try:
         if args.lang == 'SP':
-            event = defs.SAME__EEE__SP[input]
+            event = defs.SAME__EEE__SP[input1]
         else:
-            event = defs.SAME__EEE[input]
+            event = defs.SAME__EEE[input1]
     except:
-        if input[2:] in 'WAESTMN':
-            event = ' '.join(['Unknown', defs.SAME_UEEE[input[2:]]])
+        if input1[2:] in 'WAESTMN':
+            event = ' '.join(['Unknown', defs.SAME_UEEE[input1[2:]]])
     return event
 
 
-def get_indicator(input):
+def get_indicator(input1):
     indicator = None
+    # noinspection PyBroadException
     try:
-        if input[2:] in 'WAESTMNR':
-            indicator = input[2:]
+        if input1[2:] in 'WAESTMNR':
+            indicator = input1[2:]
     except:
         pass
     return indicator
@@ -217,8 +222,10 @@ def alert_length(TTTT):
 def get_location(STATION=None, TYPE=None):
     location = ''
     if TYPE == 'NWS':
+        # noinspection PyBroadException
         try:
-            location = defs.WFO_LIST[STATION]
+            # CHANGED WITHOUT TESTING
+            location = defs.ICAO_LIST[STATION]
         except:
             pass
     return location
@@ -242,8 +249,10 @@ def kwdict(**kwargs):
     return kwargs
 
 
-def format_message(command, ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHMM='0010000', STATION=None, TYPE=None,
+def format_message(command, ORG='WXR', EEE='RWT', PSSCCC=None, TTTT='0030', JJJHHMM='0010000', STATION=None, TYPE=None,
                    LLLLLLLL=None, COUNTRY='US', LANG='EN', MESSAGE=None, **kwargs):
+    if PSSCCC is None:
+        PSSCCC = []
     return command.format(ORG=ORG, EEE=EEE, TTTT=TTTT, JJJHHMM=JJJHHMM, STATION=STATION, TYPE=TYPE, LLLLLLLL=LLLLLLLL,
                           COUNTRY=COUNTRY, LANG=LANG, event=get_event(EEE), type=get_indicator(EEE),
                           end=fn_dt(alert_end(JJJHHMM, TTTT)), start=fn_dt(alert_start(JJJHHMM)),
@@ -252,8 +261,10 @@ def format_message(command, ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHM
                           length=get_length(TTTT), seconds=alert_length(TTTT), MESSAGE=MESSAGE, **kwargs)
 
 
-def readable_message(ORG='WXR', EEE='RWT', PSSCCC=[], TTTT='0030', JJJHHMM='0010000', STATION=None, TYPE=None,
+def readable_message(ORG='WXR', EEE='RWT', PSSCCC=None, TTTT='0030', JJJHHMM='0010000', STATION=None, TYPE=None,
                      LLLLLLLL=None, COUNTRY='US', LANG='EN'):
+    if PSSCCC is None:
+        PSSCCC = []
     import textwrap
     printf()
     location = get_location(STATION, TYPE)
@@ -297,7 +308,7 @@ def clean_msg(same):
     if same[slen] != '-':
         ridx = same.rfind('-')
         offset = slen - ridx
-        if (offset <= 8):
+        if offset <= 8:
             same = ''.join([same.ljust(slen + (8 - offset) + 1, '?'), '-'])  # Add final dash and/or pad location field
 
     return same
@@ -305,11 +316,11 @@ def clean_msg(same):
 
 def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=None, command=None, jsonfile=None):
     args = parse_arguments()
-    global file
-    global stream
-    global recorded_frames
+    global file, stream, recorded_frames
     while len(same):
+        # noinspection PyUnusedLocal
         tail = same
+        # noinspection PyBroadException
         try:
             same = clean_msg(same)
         except:
@@ -320,12 +331,15 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
             # New message
             logging.debug('-' * 30)
             logging.debug(' '.join(['    Identifer found >', 'ZCZC']))
+            # noinspection PyUnusedLocal
             S1, S2 = None, None
+            # noinspection PyBroadException
             try:
                 S1, S2 = same[msgidx:].split('+', 1)
             except:
                 format_error()
                 return
+            # noinspection PyBroadException
             try:
                 ZCZC, ORG, EEE, PSSCCC = S1.split('-', 3)
             except:
@@ -333,11 +347,12 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 return
             logging.debug(' '.join(['   Originator found >', ORG]))
             logging.debug(' '.join(['   Event Code found >', EEE]))
+            # noinspection PyBroadException
             try:
                 PSSCCC_list = PSSCCC.split('-')
             except:
                 format_error()
-
+            # noinspection PyBroadException
             try:
                 TTTT, JJJHHMM, LLLLLLLL, tail = S2.split('-', 3)
             except:
@@ -346,6 +361,7 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
             logging.debug(' '.join(['   Purge Time found >', TTTT]))
             logging.debug(' '.join(['    Date Code found >', JJJHHMM]))
             logging.debug(' '.join(['Location Code found >', LLLLLLLL]))
+            # noinspection PyBroadException
             try:
                 STATION, TYPE = LLLLLLLL.split('/')
             except ValueError:
@@ -356,20 +372,24 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
             except:
                 STATION, TYPE = None, None
                 format_error()
+            # noinspection PyUnboundLocalVariable
             logging.debug(' '.join(['   SAME Codes found >', str(len(PSSCCC_list))]))
             US_bad_list = []
             CA_bad_list = []
             MX_bad_list = []
             for code in PSSCCC_list:
                 try:
+                    # noinspection PyUnusedLocal
                     county = defs.US_SAME_CODE[code[1:]]
                 except KeyError:
                     US_bad_list.append(code)
                 try:
+                    # noinspection PyUnusedLocal
                     county = defs.CA_SAME_CODE[code[1:]]
                 except KeyError:
                     CA_bad_list.append(code)
                 try:
+                    # noinspection PyUnusedLocal
                     county = defs.MX_SAME_CODE[code[1:]]
                 except KeyError:
                     MX_bad_list.append(code)
@@ -386,13 +406,14 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     COUNTRY = 'MX'
                 else:
                     COUNTRY = 'US'
-            #COUNTRY = defs.COUNTRY
+            # noinspection PyUnboundLocalVariable
             if COUNTRY == 'CA':
                 bad_list = CA_bad_list
             elif COUNTRY == 'MX':
                 bad_list = MX_bad_list
             elif COUNTRY == 'US':
                 bad_list = US_bad_list
+            # noinspection PyUnboundLocalVariable
             logging.debug(' '.join(['Invalid Codes found >', str(len(bad_list)), ', '.join(bad_list)]))
             logging.debug(' '.join(['            Country >', COUNTRY]))
             logging.debug('-' * 30)
@@ -418,17 +439,11 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     if args.record:
                         if not is_recording:
                             # Start recording
-                            # sys.stdout.write(str(get_is_recording()))
-                            # sys.stdout.write('\n')
                             sys.stdout.write('Recording started. ')
                             set_is_recording(1)
                             set_FILE_NAME(EEE, args.record)
                             sys.stdout.write(FILE_NAME)
-                            # printf(FILE_NAME)
                             sys.stdout.write('\n')
-                            # sys.stdout.write(str(get_is_recording()))
-                            # sys.stdout.write('\n')
-                            # file = sf.SoundFile(FILE_NAME, 'w', format='WAV', samplerate=SAMPLE_RATE, channels=CHANNELS)
                             stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
                             stream.start()
                 if jsonfile:
@@ -469,15 +484,13 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 logging.warning('Valid identifer not found.')
                 return
             else:
-                if args.record: 
+                if args.record:
                     if is_recording:
                         # RECORDING STOP
                         stream.stop()
                         stream.close()
-                        # file.close()
                         recorded_frames = np.concatenate(recorded_frames)
-                        # sys.stdout.write(str(get_is_recording()))
-                        # sys.stdout.write('\n')
+                        # noinspection PyBroadException
                         try:
                             sf.write(FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
                             sys.stdout.write('Recording stopped. File saved as ')
@@ -486,14 +499,11 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                             set_is_recording(0)
                         except:
                             sys.stdout.write(
-                                'Error. Recording could not be saved. Please check your path and make sure it is correct and you have access. \n')
+                                'Error. Recording could not be saved. Please check your path and make sure it is '
+                                'correct and you have access. \n')
                             set_is_recording(0)
-                            # return
-                        # sys.stdout.write(str(get_is_recording()))
-                        # sys.stdout.write('\n')
                 logging.debug(' '.join(['End of Message found >', 'NNNN', str(msgidx)]))
                 tail = same[msgidx:+len('NNNN')]
-
         # Move ahead and look for more
         same = tail
 
@@ -514,7 +524,9 @@ def parse_arguments():
     parser.add_argument('--json', help='write to json file')
     parser.add_argument('--source', help='source program')
     parser.add_argument('--record', nargs='*',
-                        help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths can be either absolute or relative. ')
+                        help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths '
+                             'can be either absolute or relative. ')
+    #    parser.add_argument('--sourceselect', help='Allows you to select microphone input on startup')
     parser.set_defaults(text=True)
     args, unknown = parser.parse_known_args()
     return args
