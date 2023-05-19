@@ -50,6 +50,7 @@ Option            | Description                                                 
 `transcription_model` | Sets the transcription model level*** (The higher the level, the more time and resources it takes) | `--transcription_model medium`
 
 ** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
+
 *** These models can be downloaded from [guillamekln](https://huggingface.co/guillaumekln). When downloading the models, make sure to label the models in your models folder/location properly. The only models that this program supports are the small, medium, and large-v2 models. 
 
 ###Usage
