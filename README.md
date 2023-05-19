@@ -51,7 +51,7 @@ Option            | Description                                                 
 
 ** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
-*** These models can be downloaded from [guillamekln](https://huggingface.co/guillaumekln). When downloading the models, make sure to label the models in your models folder/location properly. The only models that this program supports are the small, medium, and large-v2 models. Additionally, inside the path specified, there must be a folder labeled "Model" and your models must be inside that folder
+*** These models are originally from [guillamekln](https://huggingface.co/guillaumekln)
 
 ###Usage
 
