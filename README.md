@@ -30,6 +30,7 @@ usage: dsame [-h] [--msg MSG] [--same [SAME [SAME ...]]]
              [--event [EVENT [EVENT ...]]] [--lang LANG]
              [--loglevel {10,20,30,40,50}] [--text] [--no-text] [--version]
              [--call CALL] [--command COMMAND] [--source SOURCE] [--record PATH]
+             [--transcribe PATH] [--transcription_model {small,medium,large}]
 ```
 ####Options
 
@@ -45,6 +46,8 @@ Option            | Description                                                 
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
 `source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
+`transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
+`transcription_model` | Sets the transcription model level (The higher the level, the more time and resources it takes) | `--transcription_model medium`
 
 * The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
