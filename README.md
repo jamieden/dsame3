@@ -42,14 +42,15 @@ Option            | Description                                                 
 `loglevel`        | Set log level                                                         | `--loglevel 10`
 `text`, `no-text` | Output/Omit readable message text                                     | `--text`, `--no-text`
 `call`            | Call an external program                                              | `--call alert.sh`
-`lang`            | Selects the language for the program*                                 | `--lang EN`
+`lang`            | Selects the language for the program**                                | `--lang EN`
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
 `source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
 `transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
-`transcription_model` | Sets the transcription model level (The higher the level, the more time and resources it takes) | `--transcription_model medium`
+`transcription_model` | Sets the transcription model level*** (The higher the level, the more time and resources it takes) | `--transcription_model medium`
 
-* The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
+** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
+*** These models can be downloaded from [guillamekln](https://huggingface.co/guillaumekln). When downloading the models, make sure to label the models in your models folder/location properly. The only models that this program supports are the small, medium, and large-v2 models. 
 
 ###Usage
 
