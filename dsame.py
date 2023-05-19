@@ -5,7 +5,8 @@
 #
 # Modifications include, but are not limited to, adding multiple language options,
 # adding recording features for alerts, implementation of the Mexico SASMEX alert system,
-# adding missing data to the ICAO list, implementing proper country detection, and Python 3.x compatibility.
+# adding missing data to the ICAO list, implementing proper country detection, implementation of audio transcription,
+# and Python 3.x compatibility.
 #
 # Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
 # granted, provided that the above copyright notice and this permission notice appear in all copies.
@@ -16,7 +17,7 @@
 # WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
 # USE OR PERFORMANCE OF THIS SOFTWARE.
 #
-
+import multiprocessing
 import sys
 import defs
 import argparse
@@ -27,22 +28,27 @@ import subprocess
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
+import os.path
+from faster_whisper import WhisperModel
 
 # Constants
 SAMPLE_RATE = 44100  # Sample rate (Hz)
 CHANNELS = 2  # Number of audio channels
 FILE_NAME = 'recording.wav'  # Output file name
+FILE_NAME_PATH = ''
 
 # Recording state
 is_recording = 0
 file = None
 stream = None
+same1 = None
 
 # Callback function for audio input
 recorded_frames = []
 
 
-def callback(indata):
+# noinspection PyUnusedLocal
+def callback(indata, data, frames, status):
     recorded_frames.append(indata.copy())
 
 
@@ -57,15 +63,43 @@ def get_is_recording():
     return str(is_recording)
 
 
+def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_NAME_PATH_LOCAL1, FILE_NAME_LOCAL,
+                            message12):
+    MODEL_PATH = os.path.abspath('') + '\\Model'
+    FILE_NAME_PATH_LOCAL = os.path.abspath(FILE_NAME_PATH_LOCAL1)
+    model = WhisperModel(model_size_or_path=(MODEL_PATH + '\\' + str(transcription_model)), device="cpu",
+                         compute_type="float32")
+    segments, info = model.transcribe(FILE_NAME_PATH_LOCAL + '\\' + FILE_NAME_LOCAL, beam_size=5)
+    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+    text = ''
+    for segment in segments:
+        text = text + " " + segment.text
+    text = text.replace('.  ', '.\n')
+    text = text.replace('  ', ' ')
+    text = text.replace(' ', '', 1)
+    TRANSCRIBE_NAME = str(transcribe_path[0]) + '\\' + FILE_NAME_LOCAL.replace('.wav', '.txt')
+    # noinspection PyBroadException
+    try:
+        with open(file=TRANSCRIBE_NAME, mode='x') as f:
+            f.write(str(message + '\n\n' + message12 + '\n\n\n' + text))
+            f.close()
+        sys.stdout.write('Transcription Complete!!\n')
+    except Exception as e:
+        sys.stdout.write(
+            'Error. Transcription could not be saved. Please check your path and make sure it is ' 
+            'correct and you have access. Error: ' + str(e) + '\n')
+
+
 def set_FILE_NAME(alert, path):
-    global FILE_NAME
+    global FILE_NAME, FILE_NAME_PATH
     current_dateTime = datetime.datetime.now()
     event = defs.SAME__EEE[alert]
     event = event.replace(' ', '-')
-    FILE_NAME = (str(path[0]) + '\\' + str(current_dateTime.strftime("%m")) + '-' + str(current_dateTime.strftime("%d"))
-                 + '-' + str(current_dateTime.strftime("%Y")) + '_' + str(current_dateTime.strftime("%I")) + '-' +
-                 str(current_dateTime.strftime("%M")) + '-' + str(current_dateTime.strftime("%p")) + '_' + str(event)
-                 + '.wav')
+    FILE_NAME = str(current_dateTime.strftime("%m")) + '-' + str(current_dateTime.strftime("%d")) + '-' + \
+                str(current_dateTime.strftime("%Y")) + '_' + str(current_dateTime.strftime("%I")) + '-' + \
+                str(current_dateTime.strftime("%M")) + '-' + str(current_dateTime.strftime("%p")) + '_' + \
+                str(event) + '.wav'
+    FILE_NAME_PATH = (str(path[0]) + '\\')
 
 
 def alert_start(JJJHHMM, format1='%j%H%M'):
@@ -284,7 +318,6 @@ def readable_message(ORG='WXR', EEE='RWT', PSSCCC=None, TTTT='0030', JJJHHMM='00
     MSG += [defs.MSG__TEXT[LANG]['MSG4']]
     MSG += [''.join(['(', LLLLLLLL, ')'])]
     output = textwrap.wrap(''.join(MSG), 78)
-
     for item in output:
         printf(item)
     printf()
@@ -311,7 +344,7 @@ def clean_msg(same):
 
 def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=None, command=None, jsonfile=None):
     args = parse_arguments()
-    global file, stream, recorded_frames
+    global file, stream, recorded_frames, same1
     while len(same):
         # noinspection PyUnusedLocal
         tail = same
@@ -422,10 +455,12 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     if args.record:
                         if not is_recording:
                             # Start recording
+                            message1 = MESSAGE
+                            same1 = str(same)
                             sys.stdout.write('Recording started. ')
                             set_is_recording(1)
                             set_FILE_NAME(EEE, args.record)
-                            sys.stdout.write(FILE_NAME)
+                            sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
                             sys.stdout.write('\n')
                             stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
                             stream.start()
@@ -434,10 +469,11 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     if args.record:
                         if not is_recording:
                             # Start recording
+                            same1 = str(same)
                             sys.stdout.write('Recording started. ')
                             set_is_recording(1)
                             set_FILE_NAME(EEE, args.record)
-                            sys.stdout.write(FILE_NAME)
+                            sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
                             sys.stdout.write('\n')
                             stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
                             stream.start()
@@ -479,24 +515,35 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 logging.warning('Valid identifer not found.')
                 return
             else:
-                if args.record:
-                    if is_recording:
-                        # RECORDING STOP
-                        stream.stop()
-                        stream.close()
-                        recorded_frames = np.concatenate(recorded_frames)
-                        # noinspection PyBroadException
+                if args.record and is_recording:
+                    # RECORDING STOP
+                    stream.stop()
+                    stream.close()
+                    recorded_frames = np.concatenate(recorded_frames)
+                    # noinspection PyBroadException
+                    try:
+                        sf.write(FILE_NAME_PATH + FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
+                        sys.stdout.write('Recording stopped. File saved as ')
+                        sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
+                        sys.stdout.write('\n')
+                        set_is_recording(0)
                         try:
-                            sf.write(FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
-                            sys.stdout.write('Recording stopped. File saved as ')
-                            sys.stdout.write(FILE_NAME)
-                            sys.stdout.write('\n')
-                            set_is_recording(0)
-                        except:
-                            sys.stdout.write(
-                                'Error. Recording could not be saved. Please check your path and make sure it is '
-                                'correct and you have access. \n')
-                            set_is_recording(0)
+                            if args.transcribe:
+                                # noinspection PyUnboundLocalVariable
+                                background_process = multiprocessing.Process(name='background_process',
+                                                                             target=transcribe_alert_faster,
+                                                                             args=(args.transcribe,
+                                                                                   args.transcription_model, same1,
+                                                                                   FILE_NAME_PATH, FILE_NAME, message1))
+                                background_process.daemon = True
+                                background_process.start()
+                        except Exception as e:
+                            sys.stdout.write('Error: ' + str(e))
+                    except Exception as e:
+                        sys.stdout.write(
+                            'Error. Recording could not be saved. Please check your path and make sure it is '
+                            'correct and you have access. \n ERROR DETAILS: ' + str(e) + '\n')
+                        set_is_recording(0)
                 logging.debug(' '.join(['End of Message found >', 'NNNN', str(msgidx)]))
                 tail = same[msgidx:+len('NNNN')]
         # Move ahead and look for more
@@ -521,7 +568,17 @@ def parse_arguments():
     parser.add_argument('--record', nargs='*',
                         help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths '
                              'can be either absolute or relative. ')
+    parser.add_argument('--transcribe', nargs='*', help='Creates a text file with a transcription of the alert '
+                                                        'message. Set transcription location. ex. "C:\\Recordings". '
+                                                        'NOTE: Paths can be either absolute or relative. '
+                                                        'ADDITIONAL NOTE: Recording must be enabled for transcription '
+                                                        'to work')
+    parser.add_argument('--transcription_model', default='medium', choices=['small', 'medium', 'large'],
+                        help='Selects the model used for transcription (the larger the model,'
+                             'the more resources/time '
+                             'it takes)')
     #    parser.add_argument('--sourceselect', help='Allows you to select microphone input on startup')
+    #    parser.add_argument() FOR DECODING AUDIO FILE
     parser.set_defaults(text=True)
     args, unknown = parser.parse_known_args()
     return args
@@ -541,10 +598,9 @@ def main():
             return
         while True:
             line = source_process.stdout.readline()
-
             if line:
                 line1 = line.decode('ascii')
-                logging.debug(line1)  # ISSUE EXISTS IN THIS AREA
+                logging.debug(line1)
                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
                             call=args.call, command=args.command, jsonfile=args.json)
     else:
