@@ -51,7 +51,7 @@ Option            | Description                                                 
 
 ** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
-*** These models are originally from [guillamekln](https://huggingface.co/guillaumekln). Because of file size limits, the "model.bin" file had to be compressed into a zip file. Please make sure to extract the model.bin file from the "Model/large-v2/model.zip" file and then delete the zip file. 
+*** These models are originally from [guillamekln](https://huggingface.co/guillaumekln). Because of file size limits, the "model.bin" file for "Model/large-v2" is missing. Please download it from [here](https://huggingface.co/guillaumekln/faster-whisper-large-v2/resolve/main/model.bin) and move it to "Model/large-v2". 
 
 ###Usage
 
