@@ -15,6 +15,8 @@ This program was originally written by [cuppa_joe](https://github.com/cuppa-joe/
 * (OPTIONAL, UNLESS USING AUDIO DEMODULATION) A [weather radio](www.nws.noaa.gov/nwr/), [RTL-SDR](http://www.rtl-sdr.com/about-rtl-sdr/) or other receiving/source device (ex. Microphone)
 * A demodulator, such as [multimon-ng](https://github.com/EliasOenal/multimon-ng/) ([Windows binaries](https://github.com/cuppa-joe/multimon-ng/releases))
 
+NOTE: If you are a Windows user, you may not need to install any software listed above, as the new dependency checker will take care of installing those programs for you
+
 ###Installation
 
 For Microsoft Windows, **dsame3** is distributed as a self-extracting installer, and downloads for 64-bit and 32-bit systems are available. Run the installer to install the program and optionally multimon-ng and/or rtl_fm.
