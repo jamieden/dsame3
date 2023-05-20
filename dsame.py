@@ -25,15 +25,10 @@ import string
 import logging
 import datetime
 import subprocess
-import platform
-import shutil
-from zipfile import ZipFile
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import os.path
-import urllib.request
-from urllib import request
 from faster_whisper import WhisperModel
 import time
 
@@ -53,6 +48,8 @@ same1 = None
 
 # Callback function for audio input
 recorded_frames = []
+MODEL_PATH = os.path.abspath('') + '\\Model'
+
 
 # noinspection PyUnusedLocal
 def callback(indata, data, frames, status):

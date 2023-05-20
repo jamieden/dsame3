@@ -2,7 +2,6 @@ import sys
 import subprocess
 import platform
 import shutil
-import time
 from zipfile import ZipFile
 import os.path
 import urllib.request
