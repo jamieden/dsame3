@@ -25,11 +25,19 @@ import string
 import logging
 import datetime
 import subprocess
+import platform
+import shutil
+from zipfile import ZipFile
 import sounddevice as sd
 import soundfile as sf
 import numpy as np
 import os.path
+import urllib.request
+from urllib import request
 from faster_whisper import WhisperModel
+import time
+
+RESTART_QUEUE = False
 
 # Constants
 SAMPLE_RATE = 44100  # Sample rate (Hz)
@@ -45,7 +53,6 @@ same1 = None
 
 # Callback function for audio input
 recorded_frames = []
-
 
 # noinspection PyUnusedLocal
 def callback(indata, data, frames, status):
@@ -65,7 +72,8 @@ def get_is_recording():
 
 def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_NAME_PATH_LOCAL1, FILE_NAME_LOCAL,
                             message12):
-    MODEL_PATH = os.path.abspath('') + '\\Model'
+    start_time = time.time()
+    global MODEL_PATH
     FILE_NAME_PATH_LOCAL = os.path.abspath(FILE_NAME_PATH_LOCAL1)
     model = WhisperModel(model_size_or_path=(MODEL_PATH + '\\' + str(transcription_model)), device="cpu",
                          compute_type="float32")
@@ -86,8 +94,9 @@ def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_
         sys.stdout.write('Transcription Complete!!\n')
     except Exception as e:
         sys.stdout.write(
-            'Error. Transcription could not be saved. Please check your path and make sure it is ' 
+            'Error. Transcription could not be saved. Please check your path and make sure it is '
             'correct and you have access. Error: ' + str(e) + '\n')
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 
 def set_FILE_NAME(alert, path):
@@ -613,6 +622,14 @@ def main():
 
 if __name__ == "__main__":
     try:
+        dependencies = subprocess.Popen(['python', 'depend.py'], creationflags=subprocess.CREATE_NEW_CONSOLE)
+        dependencies.wait()
+        # if dependencies.returncode == 23:
         main()
+        # else:
+        #     sys.stdout.write('Some missing dependencies have been installed. This program will now exit. Please '
+        #                      'restart your device as soon as possible. \n')
+        #     time.sleep(10)
+        #     exit()
     except KeyboardInterrupt:
         pass
