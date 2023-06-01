@@ -18,7 +18,9 @@
 # USE OR PERFORMANCE OF THIS SOFTWARE.
 #
 import multiprocessing
+import platform
 import sys
+
 import defs
 import argparse
 import string
@@ -45,10 +47,11 @@ is_recording = 0
 file = None
 stream = None
 same1 = None
+message1 = None
 
 # Callback function for audio input
 recorded_frames = []
-MODEL_PATH = os.path.abspath('') + '\\Model'
+MODEL_PATH = os.path.join(os.path.abspath(''), 'Model')
 
 
 # noinspection PyUnusedLocal
@@ -68,21 +71,31 @@ def get_is_recording():
 
 
 def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_NAME_PATH_LOCAL1, FILE_NAME_LOCAL,
-                            message12):
+                            message12, lang, compute, beam, device):
     start_time = time.time()
     global MODEL_PATH
+    sys.stdout.write('Transcription started. \n')
+    if transcription_model == 'large':
+        transcription_model = str(transcription_model) + '-v2'
     FILE_NAME_PATH_LOCAL = os.path.abspath(FILE_NAME_PATH_LOCAL1)
-    model = WhisperModel(model_size_or_path=(MODEL_PATH + '\\' + str(transcription_model)), device="cpu",
-                         compute_type="float32")
-    segments, info = model.transcribe(FILE_NAME_PATH_LOCAL + '\\' + FILE_NAME_LOCAL, beam_size=5)
-    print("Detected language '%s' with probability %f" % (info.language, info.language_probability))
+    logging.debug(compute + '\n')
+    logging.debug(str(beam) + '\n')
+    logging.debug(device + '\n')
+    if lang.upper() == 'EN' and not str(transcription_model) == 'large-v2':
+        model = WhisperModel(model_size_or_path=str(os.path.join(MODEL_PATH, str(transcription_model) + '.en')),
+                             device=device, compute_type=compute)
+    else:
+        model = WhisperModel(model_size_or_path=str(os.path.join(MODEL_PATH, str(transcription_model))), device=device,
+                             compute_type=compute)
+    segments, info = model.transcribe(os.path.join(FILE_NAME_PATH_LOCAL, FILE_NAME_LOCAL), beam_size=beam)
+    logging.debug("Detected language '%s' with probability %f" % (info.language, info.language_probability))
     text = ''
     for segment in segments:
         text = text + " " + segment.text
     text = text.replace('.  ', '.\n')
     text = text.replace('  ', ' ')
     text = text.replace(' ', '', 1)
-    TRANSCRIBE_NAME = str(transcribe_path[0]) + '\\' + FILE_NAME_LOCAL.replace('.wav', '.txt')
+    TRANSCRIBE_NAME = os.path.join(str(transcribe_path[0]), FILE_NAME_LOCAL.replace('.wav', '.txt'))
     # noinspection PyBroadException
     try:
         with open(file=TRANSCRIBE_NAME, mode='x') as f:
@@ -93,7 +106,7 @@ def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_
         sys.stdout.write(
             'Error. Transcription could not be saved. Please check your path and make sure it is '
             'correct and you have access. Error: ' + str(e) + '\n')
-    print("--- %s seconds ---" % (time.time() - start_time))
+    logging.debug("--- %s seconds ---" % (time.time() - start_time))
 
 
 def set_FILE_NAME(alert, path):
@@ -105,7 +118,7 @@ def set_FILE_NAME(alert, path):
                 str(current_dateTime.strftime("%Y")) + '_' + str(current_dateTime.strftime("%I")) + '-' + \
                 str(current_dateTime.strftime("%M")) + '-' + str(current_dateTime.strftime("%p")) + '_' + \
                 str(event) + '.wav'
-    FILE_NAME_PATH = (str(path[0]) + '\\')
+    FILE_NAME_PATH = os.path.join(str(path[0]) + '\\')
 
 
 def alert_start(JJJHHMM, format1='%j%H%M'):
@@ -350,7 +363,7 @@ def clean_msg(same):
 
 def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=None, command=None, jsonfile=None):
     args = parse_arguments()
-    global file, stream, recorded_frames, same1
+    global file, stream, recorded_frames, same1, message1
     while len(same):
         # noinspection PyUnusedLocal
         tail = same
@@ -459,7 +472,8 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     MESSAGE = readable_message(ORG, EEE, PSSCCC_list, TTTT, JJJHHMM, STATION, TYPE, LLLLLLLL, COUNTRY,
                                                lang)
                     if args.record:
-                        if not is_recording:
+                        """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
+                        if not is_recording and not args.source == 'rtl':
                             # Start recording
                             message1 = MESSAGE
                             same1 = str(same)
@@ -473,7 +487,8 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 else:
                     MESSAGE = None
                     if args.record:
-                        if not is_recording:
+                        """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
+                        if not is_recording and not args.source == 'rtl':
                             # Start recording
                             same1 = str(same)
                             sys.stdout.write('Recording started. ')
@@ -521,7 +536,8 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 logging.warning('Valid identifer not found.')
                 return
             else:
-                if args.record and is_recording:
+                """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
+                if args.record and is_recording and not args.source == 'rtl':
                     # RECORDING STOP
                     stream.stop()
                     stream.close()
@@ -540,11 +556,15 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                                                                              target=transcribe_alert_faster,
                                                                              args=(args.transcribe,
                                                                                    args.transcription_model, same1,
-                                                                                   FILE_NAME_PATH, FILE_NAME, message1))
+                                                                                   FILE_NAME_PATH, FILE_NAME, message1,
+                                                                                   args.lang,
+                                                                                   args.transcription_compute,
+                                                                                   args.transcription_beam_size,
+                                                                                   args.transcription_device))
                                 background_process.daemon = True
                                 background_process.start()
                         except Exception as e:
-                            sys.stdout.write('Error: ' + str(e))
+                            sys.stdout.write('Error: ' + str(e) + '\n')
                     except Exception as e:
                         sys.stdout.write(
                             'Error. Recording could not be saved. Please check your path and make sure it is '
@@ -570,19 +590,35 @@ def parse_arguments():
     parser.add_argument('--call', help='call external command')
     parser.add_argument('--command', nargs='*', help='command message')
     parser.add_argument('--json', help='write to json file')
-    parser.add_argument('--source', help='source program')
+    parser.add_argument('--source', default='soundcard', choices=['rtl', 'soundcard'], help='source program')
+    # parser.add_argument('--script', help='script program')
+    parser.add_argument('--frequency', nargs='*', help='Set the RTL_FM frequency')
+    parser.add_argument('--ppm', nargs='*', help='Set the RTL_FM PPM')
     parser.add_argument('--record', nargs='*',
                         help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths '
-                             'can be either absolute or relative. ')
+                             'can be either absolute or relative. RECORDINGS CURRENTLY DO NOT WORK WITH RTL')
     parser.add_argument('--transcribe', nargs='*', help='Creates a text file with a transcription of the alert '
                                                         'message. Set transcription location. ex. "C:\\Recordings". '
                                                         'NOTE: Paths can be either absolute or relative. '
                                                         'ADDITIONAL NOTE: Recording must be enabled for transcription '
-                                                        'to work')
+                                                        'to work. TRANSCRIPTION CURRENTLY DO NOT WORK WITH RTL')
     parser.add_argument('--transcription_model', default='medium', choices=['small', 'medium', 'large'],
                         help='Selects the model used for transcription (the larger the model,'
                              'the more resources/time '
                              'it takes)')
+    parser.add_argument('--transcription_device', default='cpu', choices=['cpu', 'cuda', 'auto'],
+                        help='Sets the device used for computation of the transcrtiption model (CURRENTLY, ONLY CPU '
+                             'WORKS)')
+    parser.add_argument('--transcription_compute', default='float32', choices=['int8', 'int8_float16', 'int16',
+                                                                               'float16', 'float32'],
+                        help='Choose the compute method for transcription. NOTE: only certain computation choices '
+                             'will work with certain devices. ')
+    parser.add_argument('--transcription_beam_size', type=int, default=5, help='Choose the beam size for '
+                                                                               'transcription. NOTE: The higher the '
+                                                                               'beam size, the more accurate the '
+                                                                               'transcription will be, but the more '
+                                                                               'time and resources it will take. ')
+
     #    parser.add_argument('--sourceselect', help='Allows you to select microphone input on startup')
     #    parser.add_argument() FOR DECODING AUDIO FILE
     parser.set_defaults(text=True)
@@ -592,16 +628,38 @@ def parse_arguments():
 
 def main():
     args = parse_arguments()
+    args.lang = args.lang.upper()
     logging.basicConfig(level=args.loglevel, format='%(levelname)s: %(message)s')
     if args.msg:
         same_decode(args.msg, args.lang, same_watch=args.same, event_watch=args.event, text=args.text, call=args.call,
                     command=args.command, jsonfile=args.json)
     elif args.source:
-        try:
-            source_process = subprocess.Popen(args.source, stdout=subprocess.PIPE)
-        except Exception as detail:
-            logging.error(detail)
-            return
+        if args.source == 'rtl':
+            try:
+                rtl_fm_cmd = ['rtl_fm', '-f', str(args.frequency[0]) + 'M', '-M', 'fm', '-s', '22050', '-E', 'dc', '-p',
+                              str(args.ppm[0]), '-']
+                multimon_ng_cmd = ['multimon-ng', '-t', 'raw', '-a', 'EAS', '-']
+                rtl_fm_process = subprocess.Popen(rtl_fm_cmd, stdout=subprocess.PIPE, shell=True)
+                multimon_ng_process = subprocess.Popen(multimon_ng_cmd, stdin=rtl_fm_process.stdout,
+                                                       stdout=subprocess.PIPE, shell=True)
+                # sox_process = subprocess.Popen(['C:\\Program Files (x86)\\sox-14-4-2\\sox.exe', '-V1', '-b', '16',
+                #                                 '-c', '1', '-e', 'signed-integer', '-r', '48k', '-t', 'raw', '-',
+                #                                 '-t', 'waveaudio', 'default'], stdin=rtl_fm_process.stdout)
+                source_process = multimon_ng_process
+            except Exception as detail:
+                logging.error(detail)
+                return
+        elif args.source == 'soundcard':
+            sys.stdout.write('Soundcard\n')
+            try:
+                source_process = subprocess.Popen('multimon-ng -a EAS', stdout=subprocess.PIPE, shell=True)
+            except Exception as detail:
+                logging.error(detail)
+                return
+        else:
+            sys.stdout.write('ERROR')
+            time.sleep(10)
+            exit()
         while True:
             line = source_process.stdout.readline()
             if line:
@@ -609,6 +667,19 @@ def main():
                 logging.debug(line1)
                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
                             call=args.call, command=args.command, jsonfile=args.json)
+    #     elif args.script:
+    #         try:
+    #             source_process = subprocess.Popen(args.script, stdout=subprocess.PIPE)
+    #         except Exception as detail:
+    #             logging.error(detail)
+    #             return
+    #         while True:
+    #             line = source_process.stdout.readline()
+    #             if line:
+    #                 line1 = line.decode('ascii')
+    #                 logging.debug(line1)
+    #                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
+    #                             call=args.call, command=args.command, jsonfile=args.json)
     else:
         while True:
             for line in sys.stdin:
@@ -619,8 +690,12 @@ def main():
 
 if __name__ == "__main__":
     try:
-        dependencies = subprocess.Popen(['python', 'depend.py'], creationflags=subprocess.CREATE_NEW_CONSOLE)
-        dependencies.wait()
+        if platform.system() == 'Windows':
+            dependencies = subprocess.Popen(['python', 'depend.py'], creationflags=subprocess.CREATE_NEW_CONSOLE)
+            dependencies.wait()
+        else:
+            dependencies = subprocess.Popen('xterm -e "python3 depend.py"', shell=True)
+            dependencies.wait()
         # if dependencies.returncode == 23:
         main()
         # else:
