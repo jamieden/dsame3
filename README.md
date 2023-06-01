@@ -51,8 +51,8 @@ Option            | Description                                                 
 `lang`            | Selects the language for the program**                                | `--lang EN`
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
 `source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
-`frequency`       | Set the RTL_FM frequency                                              | `--frequency 162.475`
-`ppm`             | Set the RTL_FM PPM                                                    | `--ppm 0`
+`frequency`       | Set the RTL_FM frequency (in MHz)                                     | `--frequency 162.475`
+`ppm`             | Set the RTL_FM PPM (Parts Per Million)                                | `--ppm 0`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
 `transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path (THE RECORD OPTION IS REQUIRED FOR THE TRANSCRIBE FEATURE TO WORK) | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
 `transcription_model` | Sets the transcription model level*** (The higher the level, the more time and resources it takes) | `--transcription_model medium`
