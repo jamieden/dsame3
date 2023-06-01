@@ -31,8 +31,12 @@ Check [here](https://github.com/jamieden/dsame3/releases/latest) to download the
 usage: dsame [-h] [--msg MSG] [--same [SAME [SAME ...]]]
              [--event [EVENT [EVENT ...]]] [--lang LANG]
              [--loglevel {10,20,30,40,50}] [--text] [--no-text] [--version]
-             [--call CALL] [--command COMMAND] [--source SOURCE] [--record PATH]
-             [--transcribe PATH] [--transcription_model {small,medium,large}]
+             [--call CALL] [--command COMMAND] [--source SOURCE] [--frequency FREQ]
+             [--ppm PPM] [--record PATH] [--transcribe PATH] 
+             [--transcription_model {small,medium,large}]
+             [--transcription_device {cpu, cuda, auto}] 
+             [--transcription_compute {int8, int8_float16, int16, float16, float32}]
+             [--transcription_beam_size SIZE]
 ```
 ####Options
 
@@ -47,9 +51,14 @@ Option            | Description                                                 
 `lang`            | Selects the language for the program**                                | `--lang EN`
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
 `source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
+`frequency`       | Set the RTL_FM frequency                                              | `--frequency 162.475`
+`ppm`             | Set the RTL_FM PPM                                                    | `--ppm 0`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
 `transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path (THE RECORD OPTION IS REQUIRED FOR THE TRANSCRIBE FEATURE TO WORK) | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
 `transcription_model` | Sets the transcription model level*** (The higher the level, the more time and resources it takes) | `--transcription_model medium`
+`transcription_device` | Sets the device used for computation of the transcrtiption model (CURRENTLY, ONLY CPU WORKS) | `--transcription_device cpu`
+`transcription_compute` | Choose the compute method for transcription. NOTE: only certain computation choices will work with certain devices. | `--transcription_device float32`
+`transcription_beam_size` | Choose the beam size for transcription. NOTE: The higher the beam size, the more accurate the transcription will be, but the more time and resources it will take. | `--transcription_beam_size 5`
 
 ** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
