@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-#
 # Copyright (C) 2017 Joseph W. Metcalf
 # Modified by James Kitchens 2023
 #
@@ -17,10 +15,17 @@
 # WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
 # USE OR PERFORMANCE OF THIS SOFTWARE.
 #
+
+# dependencies = subprocess.Popen(['python', 'pipDepend.py'], creationflags=subprocess.CREATE_NEW_CONSOLE)
+# dependencies.wait()
+
+# IMPLEMENT CONFIGURATION FILE TO AVOID REQUIRING THE USER TO CALL WITH ARGUMENTS
+# JUST REPLACE THE ARGS WITH THE CONFIG FILE DATA VARIABLES
+
 import multiprocessing
 import platform
 import sys
-
+from tqdm import tqdm
 import defs
 import argparse
 import string
@@ -33,8 +38,10 @@ import numpy as np
 import os.path
 from faster_whisper import WhisperModel
 import time
-
-RESTART_QUEUE = False
+import shutil
+import urllib.request
+from urllib import request
+from zipfile import ZipFile
 
 # Constants
 SAMPLE_RATE = 44100  # Sample rate (Hz)
@@ -52,11 +59,288 @@ message1 = None
 # Callback function for audio input
 recorded_frames = []
 MODEL_PATH = os.path.join(os.path.abspath(''), 'Model')
+RESTART_QUEUE = False
+
+
+def my_hook(t):
+    last_b = [0]
+
+    def update_to(b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            t.total = tsize
+        t.update((b - last_b[0]) * bsize)
+        last_b[0] = b
+
+    return update_to
+
+
+class TqdmUpTo(tqdm):
+    """Alternative Class-based version of the above.
+    Provides `update_to(n)` which uses `tqdm.update(delta_n)`.
+    Inspired by [twine#242](https://github.com/pypa/twine/pull/242),
+    [here](https://github.com/pypa/twine/commit/42e55e06).
+    """
+
+    def update_to(self, b=1, bsize=1, tsize=None):
+        """
+        b  : int, optional
+            Number of blocks transferred so far [default: 1].
+        bsize  : int, optional
+            Size of each block (in tqdm units) [default: 1].
+        tsize  : int, optional
+            Total size (in tqdm units). If [default: None] remains unchanged.
+        """
+        if tsize is not None:
+            self.total = tsize
+        self.update(b * bsize - self.n)  # will also set self.n = b * bsize
+
+
+# NEED TO IMPLEMENT (maybe) SoX
+# Multimon-NG might be an issue for MacOS
+# IMPLEMENT ERROR FLAG SO PROGRAM PAUSES INSTEAD OF WAITING 5 SECONDS
+
+
+# noinspection PyBroadException
+def internet_on():
+    try:
+        request.urlopen('https://google.com', timeout=4)
+        return True
+    except Exception:
+        return False
+
+
+def os_clear():
+    if platform.system() == 'Windows':
+        os.system('cls')
+    else:
+        os.system('clear')
+
+
+# noinspection PyBroadException
+def dependency_check_rtl():
+    if internet_on():
+        PLATFORM = platform.system()
+        if PLATFORM == 'Windows':
+            home_directory = os.path.expanduser('~')
+            # check if RTL-SDR exists or not
+            try:
+                subprocess.Popen('rtl_fm -h', stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                sys.stdout.write('RTL-SDR is installed. \n')
+            except Exception:
+                if not os.path.exists(os.path.abspath('') + '\\Temp'):
+                    os.makedirs(os.path.abspath('') + '\\Temp')
+                # sys.stdout.write("Downloading RTL-SDR Windows Binary ZIP File. \n")
+                with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                              desc='Downloading RTL-SDR Windows Binary ZIP File', ascii=' █') as t:
+                    urllib.request.urlretrieve(
+                        url="https://github.com/rtlsdrblog/rtl-sdr-blog/releases/download/1.01/Release.zip",
+                        filename=os.path.abspath('') + '\\Temp\\Release.zip',
+                        reporthook=t.update_to)
+                if not os.path.exists(home_directory + '\\rtl-sdr-release'):
+                    os.makedirs(home_directory + '\\rtl-sdr-release')
+                with ZipFile(os.path.abspath('') + '\\Temp\\Release.zip', 'r') as zObject:
+                    zObject.extractall(path=home_directory + '\\rtl-sdr-release')
+                p = subprocess.Popen(["powershell.exe", '$PATH = [Environment]::GetEnvironmentVariable("PATH", '
+                                                        '"User"); $new_path = "' + home_directory +
+                                      '\\rtl-sdr-release\\"; if( $PATH -notlike "*"+$new_path+"*" ){ ['
+                                      'Environment]::SetEnvironmentVariable("PATH", "$PATH;$new_path", '
+                                      '"User")}'])
+                p.communicate()
+                shutil.rmtree(os.path.abspath('') + '\\Temp')
+                global RESTART_QUEUE
+                RESTART_QUEUE = True
+        elif PLATFORM == 'Linux':
+            sys.stdout.write(PLATFORM)
+            try:
+                os.system('sudo apt install rtl-sdr gqrx-sdr')
+                # RESTART_QUEUE = True
+            except Exception as e:
+                sys.stdout.write(str(e) + '\n')
+        elif PLATFORM == 'Darwin':
+            sys.stdout.write(PLATFORM)
+            os.system('brew install --cask gqrx')
+            os.system('brew install librtlsdr')
+        else:
+            sys.stdout.write('UNEXPECTED ERROR. \n')
+    else:
+        sys.stdout.write('RTL-SDR DEPENDENCY CHECK ERROR: This device seems disconnected from the internet. '
+                         'Dependency checks cannot be conducted. This may cause unexpected program '
+                         'behavior. Please connect your device to the internet as soon as possible to '
+                         'ensure all dependencies are properly installed. \n')
+
+
+# noinspection PyBroadException
+def dependency_check_ffmpeg():
+    if internet_on():
+        PLATFORM = platform.system()
+        if PLATFORM == 'Windows':
+            # sys.stdout.write(PLATFORM + '\n')
+            home_directory = os.path.expanduser('~')
+            # check if FFMPEG exists or not
+            try:
+                subprocess.Popen('ffmpeg -h', stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                sys.stdout.write('FFMPEG is installed. \n')
+            except Exception:
+                if not os.path.exists(os.path.abspath('') + '\\Temp'):
+                    os.makedirs(os.path.abspath('') + '\\Temp')
+                # sys.stdout.write("Downloading FFMPEG Windows Binary ZIP File. \n")
+                with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                              desc='Downloading FFMPEG Windows Binary ZIP File', ascii=' █') as t:
+                    urllib.request.urlretrieve(
+                        url="https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64"
+                            "-gpl.zip",
+                        filename=os.path.abspath('') + '\\Temp\\ffmpeg-master-latest-win64-gpl.zip',
+                        reporthook=t.update_to)
+                # if not os.path.exists(home_directory + '\\ffmpeg'):
+                #     os.makedirs(home_directory + '\\ffmpeg')
+                with ZipFile(os.path.abspath('') + '\\Temp\\ffmpeg-master-latest-win64-gpl.zip', 'r') as zObject:
+                    zObject.extractall(path=home_directory)
+                os.rename(home_directory + '\\ffmpeg-master-latest-win64-gpl', home_directory + '\\ffmpeg')
+                p = subprocess.Popen(["powershell.exe", '$PATH = [Environment]::GetEnvironmentVariable("PATH", '
+                                                        '"User"); $new_path = "' + home_directory +
+                                      '\\ffmpeg\\bin\\"; if( $PATH -notlike "*"+$new_path+"*" ){ ['
+                                      'Environment]::SetEnvironmentVariable("PATH", "$PATH;$new_path", '
+                                      '"User")}'])
+                p.communicate()
+                # os.environ["PATH"] += os.pathsep + home_directory + '\\ffmpeg\\bin;'
+                shutil.rmtree(os.path.abspath('') + '\\Temp')
+                global RESTART_QUEUE
+                RESTART_QUEUE = True
+        elif PLATFORM == 'Linux':
+            sys.stdout.write(PLATFORM)
+            try:
+                os.system('sudo apt install ffmpeg')
+                # RESTART_QUEUE = True
+            except Exception as e:
+                sys.stdout.write(str(e) + '\n')
+        elif PLATFORM == 'Darwin':
+            sys.stdout.write(PLATFORM)
+            os.system('brew install ffmpeg')
+        else:
+            sys.stdout.write('UNEXPECTED ERROR. \n')
+    else:
+        sys.stdout.write('FFMPEG DEPENDENCY CHECK ERROR: This device seems disconnected from the internet. '
+                         'Dependency checks cannot be conducted. This may cause unexpected program '
+                         'behavior. Please connect your device to the internet as soon as possible to '
+                         'ensure all dependencies are properly installed. \n')
+
+
+# noinspection PyBroadException
+def dependency_check_multimon():
+    if internet_on():
+        PLATFORM = platform.system()
+        if PLATFORM == 'Windows':
+            # sys.stdout.write(PLATFORM + '\n')
+            home_directory = os.path.expanduser('~')
+            # check if Multimon-NG exists or not
+            try:
+                subprocess.Popen('multimon-ng -h', stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+                sys.stdout.write('Multimon-NG is installed. \n')
+            except Exception:
+                if not os.path.exists(os.path.abspath('') + '\\Temp'):
+                    os.makedirs(os.path.abspath('') + '\\Temp')
+                # sys.stdout.write("Downloading Multimon-NG Windows Binary ZIP File. \n")
+                with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                              desc='Downloading Multimon-NG Windows Binary ZIP File', ascii=' █') as t:
+                    urllib.request.urlretrieve(
+                        url="https://github.com/cuppa-joe/multimon-ng/releases/download/WIN32-0415/multimon-ng-WIN32"
+                            ".zip",
+                        filename=os.path.abspath('') + '\\Temp\\multimon-ng-WIN32.zip',
+                        reporthook=t.update_to)
+                if not os.path.exists(home_directory + '\\multimon-ng'):
+                    os.makedirs(home_directory + '\\multimon-ng')
+                with ZipFile(os.path.abspath('') + '\\Temp\\multimon-ng-WIN32.zip', 'r') as zObject:
+                    zObject.extractall(path=home_directory + '\\multimon-ng')
+                p = subprocess.Popen(["powershell.exe", '$PATH = [Environment]::GetEnvironmentVariable("PATH", '
+                                                        '"User"); $new_path = "' + home_directory +
+                                      '\\multimon-ng\\"; if( $PATH -notlike "*"+$new_path+"*" ){ ['
+                                      'Environment]::SetEnvironmentVariable("PATH", "$PATH;$new_path", '
+                                      '"User")}'])
+                p.communicate()
+                shutil.rmtree(os.path.abspath('') + '\\Temp')
+                global RESTART_QUEUE
+                RESTART_QUEUE = True
+        elif PLATFORM == 'Linux':
+            sys.stdout.write(PLATFORM)
+            try:
+                os.system('sudo apt install multimon-ng')
+                # RESTART_QUEUE = True
+            except Exception as e:
+                sys.stdout.write(str(e) + '\n')
+        elif PLATFORM == 'Darwin':
+            sys.stdout.write(PLATFORM)
+        else:
+            sys.stdout.write('UNEXPECTED ERROR. \n')
+    else:
+        sys.stdout.write('MULTIMON-NG DEPENDENCY CHECK ERROR: This device seems disconnected from the internet. '
+                         'Dependency checks cannot be conducted. This may cause unexpected program '
+                         'behavior. Please connect your device to the internet as soon as possible to '
+                         'ensure all dependencies are properly installed. \n')
+
+
+def dependency_check_model(MODEL_NAME):
+    if internet_on():
+        if not os.path.exists(os.path.join(MODEL_PATH, MODEL_NAME)):
+            sys.stdout.write("Model path does not exist for " + MODEL_NAME + ". Creating folders and downloading files. \n")
+            os.makedirs(os.path.join(MODEL_PATH, MODEL_NAME))
+        if not os.path.exists(os.path.join(MODEL_PATH, MODEL_NAME, 'model.bin')):
+            # sys.stdout.write("Downloading model.bin for model " + MODEL_NAME + ". \n")
+            with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                          desc="Downloading model.bin for model " + MODEL_NAME, ascii=' █') as t:
+                urllib.request.urlretrieve(
+                    url="https://huggingface.co/guillaumekln/faster-whisper-" + MODEL_NAME + "/resolve/main/model.bin",
+                    filename=os.path.join(MODEL_PATH, MODEL_NAME, 'model.bin'),
+                    reporthook=t.update_to)
+        if not os.path.exists(os.path.join(MODEL_PATH, MODEL_NAME, 'config.json')):
+            # sys.stdout.write("Downloading config.json for model " + MODEL_NAME + ". \n")
+            with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                          desc="Downloading config.json for model " + MODEL_NAME, ascii=' █') as t:
+                urllib.request.urlretrieve(
+                    url="https://huggingface.co/guillaumekln/faster-whisper-" + MODEL_NAME + "/resolve/main/config.json",
+                    filename=os.path.join(MODEL_PATH, MODEL_NAME, 'config.json'),
+                    reporthook=t.update_to)
+        if not os.path.exists(os.path.join(MODEL_PATH, MODEL_NAME, 'tokenizer.json')):
+            # sys.stdout.write("Downloading tokenizer.json for model " + MODEL_NAME + ". \n")
+            with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                          desc="Downloading tokenizer.json for model " + MODEL_NAME, ascii=' █') as t:
+                urllib.request.urlretrieve(
+                    url="https://huggingface.co/guillaumekln/faster-whisper-" + MODEL_NAME + "/resolve/main/tokenizer.json",
+                    filename=os.path.join(MODEL_PATH, MODEL_NAME, 'tokenizer.json'),
+                    reporthook=t.update_to)
+        if not os.path.exists(os.path.join(MODEL_PATH, MODEL_NAME, 'vocabulary.txt')):
+            # sys.stdout.write("Downloading vocabulary.txt for model " + MODEL_NAME + ". \n")
+            with TqdmUpTo(unit='B', unit_scale=True, unit_divisor=1024, miniters=1,
+                          desc="Downloading vocabulary.txt for model " + MODEL_NAME, ascii=' █') as t:
+                urllib.request.urlretrieve(
+                    url="https://huggingface.co/guillaumekln/faster-whisper-" + MODEL_NAME + "/resolve/main/vocabulary.txt",
+                    filename=os.path.join(MODEL_PATH, MODEL_NAME, 'vocabulary.txt'),
+                    reporthook=t.update_to)
+        sys.stdout.write('All dependencies are installed and up to date for model ' + MODEL_NAME + '. \n')
+    else:
+        sys.stdout.write(MODEL_NAME + 'MODEL DEPENDENCY CHECK ERROR: This device seems disconnected from the internet. '
+                                      'Dependency checks cannot be conducted. This may cause unexpected program '
+                                      'behavior. Please connect your device to the internet as soon as possible to '
+                                      'ensure all dependencies are properly installed. \n')
 
 
 # noinspection PyUnusedLocal
 def callback(indata, data, frames, status):
     recorded_frames.append(indata.copy())
+
+
+# noinspection PyUnusedLocal,PyShadowingNames
+def callback1(indata, outdata, frames, time, status):
+    if status:
+        print(status)
+    outdata[:] = indata
 
 
 def set_is_recording(data):
@@ -68,6 +352,14 @@ def get_is_recording():
     global is_recording
     is_recording = is_recording
     return str(is_recording)
+
+
+def int_or_str(text):
+    """Helper function for argument parsing."""
+    try:
+        return int(text)
+    except ValueError:
+        return text
 
 
 def transcribe_alert_faster(transcribe_path, transcription_model, message, FILE_NAME_PATH_LOCAL1, FILE_NAME_LOCAL,
@@ -473,17 +765,20 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                                                lang)
                     if args.record:
                         """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
-                        if not is_recording and not args.source == 'rtl':
-                            # Start recording
-                            message1 = MESSAGE
-                            same1 = str(same)
-                            sys.stdout.write('Recording started. ')
-                            set_is_recording(1)
-                            set_FILE_NAME(EEE, args.record)
-                            sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
-                            sys.stdout.write('\n')
-                            stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
-                            stream.start()
+                        if not is_recording:
+                            if args.source == 'rtl':
+                                sys.stdout.write('rtl\n')
+                            else:
+                                # Start recording
+                                message1 = MESSAGE
+                                same1 = str(same)
+                                sys.stdout.write('Recording started. ')
+                                set_is_recording(1)
+                                set_FILE_NAME(EEE, args.record)
+                                sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
+                                sys.stdout.write('\n')
+                                stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
+                                stream.start()
                 else:
                     MESSAGE = None
                     if args.record:
@@ -545,10 +840,9 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                     # noinspection PyBroadException
                     try:
                         sf.write(FILE_NAME_PATH + FILE_NAME, recorded_frames, SAMPLE_RATE, 'PCM_24')
-                        sys.stdout.write('Recording stopped. File saved as ')
-                        sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
-                        sys.stdout.write('\n')
+                        sys.stdout.write('Recording stopped. File saved as ' + FILE_NAME_PATH + FILE_NAME + '\n')
                         set_is_recording(0)
+                        recorded_frames = []
                         try:
                             if args.transcribe:
                                 # noinspection PyUnboundLocalVariable
@@ -618,7 +912,11 @@ def parse_arguments():
                                                                                'beam size, the more accurate the '
                                                                                'transcription will be, but the more '
                                                                                'time and resources it will take. ')
-
+    parser.add_argument('--monitor', action='store_true', help='Enables monitoring. Choose whether you want the '
+                                                               'selected source device output to be played through '
+                                                               'the default output device')
+    parser.add_argument('--skip_dependency', action='store_true', help='Skips dependency checking (MUST USE IF OFFLINE)'
+                        )
     #    parser.add_argument('--sourceselect', help='Allows you to select microphone input on startup')
     #    parser.add_argument() FOR DECODING AUDIO FILE
     parser.set_defaults(text=True)
@@ -629,6 +927,13 @@ def parse_arguments():
 def main():
     args = parse_arguments()
     args.lang = args.lang.upper()
+    # try:
+    #     subprocess.check_output('multimon-ng -a EAS')
+    # except Exception as e:
+    #     sys.stdout.write(str(e) + '\n')
+    #     time.sleep(5)
+    #     os_clear()
+    #     os.execv(sys.executable, ['python'] + sys.argv)
     logging.basicConfig(level=args.loglevel, format='%(levelname)s: %(message)s')
     if args.msg:
         same_decode(args.msg, args.lang, same_watch=args.same, event_watch=args.event, text=args.text, call=args.call,
@@ -639,26 +944,36 @@ def main():
                 rtl_fm_cmd = ['rtl_fm', '-f', str(args.frequency[0]) + 'M', '-M', 'fm', '-s', '22050', '-E', 'dc', '-p',
                               str(args.ppm[0]), '-']
                 multimon_ng_cmd = ['multimon-ng', '-t', 'raw', '-a', 'EAS', '-']
+                sox_cmd = ['C:\\Program Files (x86)\\sox-14-4-2\\sox.exe', '-V1', '-b', '16',
+                           '-c', '1', '-e', 'signed-integer', '-r', '22050', '-t', 'raw', '-',
+                           '-t', 'waveaudio', 'default']
                 rtl_fm_process = subprocess.Popen(rtl_fm_cmd, stdout=subprocess.PIPE, shell=True)
                 multimon_ng_process = subprocess.Popen(multimon_ng_cmd, stdin=rtl_fm_process.stdout,
                                                        stdout=subprocess.PIPE, shell=True)
-                # sox_process = subprocess.Popen(['C:\\Program Files (x86)\\sox-14-4-2\\sox.exe', '-V1', '-b', '16',
-                #                                 '-c', '1', '-e', 'signed-integer', '-r', '48k', '-t', 'raw', '-',
-                #                                 '-t', 'waveaudio', 'default'], stdin=rtl_fm_process.stdout)
+
+                # NEEDS FIX
+                # if args.monitor:
+                    # noinspection PyUnusedLocal
+                #     sox_process = subprocess.Popen(sox_cmd, stdin=rtl_fm_process.stdout)
+
                 source_process = multimon_ng_process
             except Exception as detail:
                 logging.error(detail)
                 return
         elif args.source == 'soundcard':
-            sys.stdout.write('Soundcard\n')
+            # sys.stdout.write('Soundcard\n')
             try:
-                source_process = subprocess.Popen('multimon-ng -a EAS', stdout=subprocess.PIPE, shell=True)
+                multimon_ng_process = subprocess.Popen('multimon-ng -a EAS', stdout=subprocess.PIPE, shell=True)
+                source_process = multimon_ng_process
+                if args.monitor:
+                    sys.stdout.write('MONITORING ENABLED\n')
+                    subprocess.Popen(['python', 'wire.py'])
             except Exception as detail:
                 logging.error(detail)
                 return
         else:
-            sys.stdout.write('ERROR')
-            time.sleep(10)
+            sys.stdout.write('ERROR' + '\n')
+            input("Please press enter to close the program...")
             exit()
         while True:
             line = source_process.stdout.readline()
@@ -689,19 +1004,35 @@ def main():
 
 
 if __name__ == "__main__":
+    # global RESTART_QUEUE
+    args = parse_arguments()
     try:
-        if platform.system() == 'Windows':
-            dependencies = subprocess.Popen(['python', 'depend.py'], creationflags=subprocess.CREATE_NEW_CONSOLE)
-            dependencies.wait()
+        if not args.skip_dependency:
+            os.system("title " + "dsame3 Dependency Checker")
+            # if platform.system() == 'Linux':
+            #     os.system('sudo apt install xterm')
+            if platform.system() == 'MacOS':
+                os.system('/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install'
+                          '.sh)"')
+            dependency_check_model('small')
+            dependency_check_model('medium')
+            dependency_check_model('large-v2')
+            dependency_check_model('small.en')
+            dependency_check_model('medium.en')
+            dependency_check_multimon()
+            dependency_check_ffmpeg()
+            dependency_check_rtl()
+            os_clear()
+        if RESTART_QUEUE:
+            # NEED TO FIX AND MAKE PRETTY
+            input("A dependency has been installed that requires a restart of the program. Please press enter to "
+                  "close the program...")
+            exit()
         else:
-            dependencies = subprocess.Popen('xterm -e "python3 depend.py"', shell=True)
-            dependencies.wait()
-        # if dependencies.returncode == 23:
-        main()
-        # else:
-        #     sys.stdout.write('Some missing dependencies have been installed. This program will now exit. Please '
-        #                      'restart your device as soon as possible. \n')
-        #     time.sleep(10)
-        #     exit()
+            os.system("title " + "dsame3")
+            main()
     except KeyboardInterrupt:
         pass
+    except Exception as e:
+        sys.stdout.write('Error: ' + str(e) + '\n')
+        input("Please press enter to close the program...")
