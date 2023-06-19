@@ -1,0 +1,5 @@
+faster_whisper
+numpy
+sounddevice
+soundfile
+tqdm
