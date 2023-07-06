@@ -237,6 +237,7 @@ CA_SAME_AREA = {
 
 MX_SAME_AREA = {
     'LOCATION': 'MX',
+    '00': 'Mexico',
     '01': 'Aguascalientes',
     '02': 'Baja California Norte',
     '03': 'Baja California Sur',
@@ -5904,6 +5905,7 @@ CA_SAME_CODE = {
 }
 
 MX_SAME_CODE = {
+    '00000': 'Mexico',
     '09001': 'Alguna Del',
     '09003': 'Cuauhtemoc',
     '09004': 'Iztacalco',
