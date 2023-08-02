@@ -61,6 +61,14 @@ recorded_frames = []
 MODEL_PATH = os.path.join(os.path.abspath(''), 'Model')
 RESTART_QUEUE = False
 
+eventWarning = ["AVW", "BHW", "BWW", "BZW", "CDW", "CEM", "CFW", "CHW", "CWW", "DBW", "DEW", "DSW", "EAN", "EQW", "EVI",
+                "EWW", "FCW", "FFW", "FLW", "FRW", "FSW", "FZW", "HMW", "HUW", "HWW", "IBW", "IFW", "LAE", "LEW", "LSW",
+                "NUW", "RHW", "SMW", "SPW", "SSW", "SVR", "TOR", "TRW", "TSW", "VOW", "WFW", "WSW", "SQW"]
+eventWatch = ["AVA", "CFA", "DBA", "EVA", "FFA", "FLA", "HUA", "HWA", "SSA", "SVA", "TOA", "TRA", "TSA", "WFA", "WSA"]
+eventAdvisory = ["ADR", "CAE", "DMO", "EAT", "FFS", "FLS", "HLS", "NAT", "NIC", "NMN", "NPT", "NST", 'POS', "RMT",
+                 "RWT", "SPS", "SVS", "TOE"]
+EEE2 = ''
+
 
 def my_hook(t):
     last_b = [0]
@@ -763,15 +771,16 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                 if text:
                     MESSAGE = readable_message(ORG, EEE, PSSCCC_list, TTTT, JJJHHMM, STATION, TYPE, LLLLLLLL, COUNTRY,
                                                lang)
+                    message1 = MESSAGE
+                    same1 = str(same)
                     if args.record:
                         """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
-                        if not is_recording:
+                        if not is_recording and not args.source == 'file':
                             if args.source == 'rtl':
                                 sys.stdout.write('rtl\n')
                             else:
                                 # Start recording
-                                message1 = MESSAGE
-                                same1 = str(same)
+
                                 sys.stdout.write('Recording started. ')
                                 set_is_recording(1)
                                 set_FILE_NAME(EEE, args.record)
@@ -781,18 +790,21 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                                 stream.start()
                 else:
                     MESSAGE = None
+                    same1 = str(same)
                     if args.record:
                         """and not args.source == 'rtl' will be removed once a way to record the SDR stream is found"""
-                        if not is_recording and not args.source == 'rtl':
-                            # Start recording
-                            same1 = str(same)
-                            sys.stdout.write('Recording started. ')
-                            set_is_recording(1)
-                            set_FILE_NAME(EEE, args.record)
-                            sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
-                            sys.stdout.write('\n')
-                            stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
-                            stream.start()
+                        if not is_recording and not args.source == 'file':
+                            if args.source == 'rtl':
+                                sys.stdout.write('rtl\n')
+                            else:
+                                # Start recording
+                                sys.stdout.write('Recording started. ')
+                                set_is_recording(1)
+                                set_FILE_NAME(EEE, args.record)
+                                sys.stdout.write(FILE_NAME_PATH + FILE_NAME)
+                                sys.stdout.write('\n')
+                                stream = sd.InputStream(callback=callback, channels=CHANNELS, samplerate=SAMPLE_RATE)
+                                stream.start()
                 if jsonfile:
                     try:
                         import json
@@ -844,7 +856,7 @@ def same_decode(same, lang, same_watch=None, event_watch=None, text=True, call=N
                         set_is_recording(0)
                         recorded_frames = []
                         try:
-                            if args.transcribe:
+                            if args.transcribe and not args.source == 'file':
                                 # noinspection PyUnboundLocalVariable
                                 background_process = multiprocessing.Process(name='background_process',
                                                                              target=transcribe_alert_faster,
@@ -884,18 +896,19 @@ def parse_arguments():
     parser.add_argument('--call', help='call external command')
     parser.add_argument('--command', nargs='*', help='command message')
     parser.add_argument('--json', help='write to json file')
-    parser.add_argument('--source', default='soundcard', choices=['rtl', 'soundcard'], help='source program')
+    parser.add_argument('--source', default='soundcard', choices=['rtl', 'soundcard', 'file'], help='source program')
     # parser.add_argument('--script', help='script program')
     parser.add_argument('--frequency', nargs='*', help='Set the RTL_FM frequency')
     parser.add_argument('--ppm', nargs='*', help='Set the RTL_FM PPM')
     parser.add_argument('--record', nargs='*',
                         help='Record on valid SAME tone. Set recording location. ex. "C:\\Recordings". NOTE: Paths '
-                             'can be either absolute or relative. RECORDINGS CURRENTLY DO NOT WORK WITH RTL')
+                             'can be either absolute or relative. RECORDINGS CURRENTLY DO NOT WORK WITH RTL AND DO NOT '
+                             'WORK WITH FILE')
     parser.add_argument('--transcribe', nargs='*', help='Creates a text file with a transcription of the alert '
                                                         'message. Set transcription location. ex. "C:\\Recordings". '
                                                         'NOTE: Paths can be either absolute or relative. '
                                                         'ADDITIONAL NOTE: Recording must be enabled for transcription '
-                                                        'to work. TRANSCRIPTION CURRENTLY DO NOT WORK WITH RTL')
+                                                        'to work. TRANSCRIPTIONS CURRENTLY DO NOT WORK WITH RTL')
     parser.add_argument('--transcription_model', default='medium', choices=['small', 'medium', 'large'],
                         help='Selects the model used for transcription (the larger the model,'
                              'the more resources/time '
@@ -918,7 +931,10 @@ def parse_arguments():
     parser.add_argument('--skip_dependency', action='store_true', help='Skips dependency checking (MUST USE IF OFFLINE)'
                         )
     #    parser.add_argument('--sourceselect', help='Allows you to select microphone input on startup')
-    #    parser.add_argument() FOR DECODING AUDIO FILE
+    parser.add_argument('--audiofile', help='Set audio file location when using source type "FILE" '
+                                            'ex. "C:\\Recordings". NOTE: Paths can be either absolute or '
+                                            'relative.')  # FOR DECODING AUDIO FILE
+    #    parser.add_argument() FOR ALARM WINDOW OPTIONS
     parser.set_defaults(text=True)
     args, unknown = parser.parse_known_args()
     return args
@@ -971,6 +987,51 @@ def main():
             except Exception as detail:
                 logging.error(detail)
                 return
+        elif args.source == 'file':  # FIX
+            try:
+                global FILE_NAME_PATH, FILE_NAME
+                FILE_NAME_PATH, FILE_NAME = os.path.split(os.path.abspath(args.audiofile))
+                # sys.stdout.write(FILE_NAME_PATH + '\n')
+                # sys.stdout.write(FILE_NAME + '\n')
+                sox_process = subprocess.Popen('"C:\\Program Files (x86)\\sox-14-4-2\\sox.exe" -V1 -t wav "' +
+                                               os.path.abspath(args.audiofile) + '" -e signed-integer -b 16 -c 1 -r '
+                                                                                 '22050 -t raw "process.raw"',
+                                               stdout=subprocess.PIPE, shell=True)
+                sox_process.communicate()
+                multimon_ng_process = subprocess.Popen('multimon-ng -a EAS -t raw "process.raw"', stdout=subprocess.PIPE
+                                                       , shell=True)
+                while multimon_ng_process.poll() is None:
+                    line = multimon_ng_process.stdout.readline()
+                    if line:
+                        line1 = line.decode('ascii')
+                        logging.debug(line1)
+                        same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
+                                    call=args.call, command=args.command, jsonfile=args.json)
+                # noinspection PyUnboundLocalVariable
+                # same1 = 'TEST'
+                # message1 = 'TEST'
+                global same1, message1
+                # sys.stdout.write(str(same1) + '\n')
+                # sys.stdout.write(str(message1) + '\n')
+                background_process = multiprocessing.Process(name='background_process',
+                                                             target=transcribe_alert_faster,
+                                                             args=(args.transcribe,
+                                                                   args.transcription_model, str(same1),
+                                                                   FILE_NAME_PATH, FILE_NAME, str(message1),
+                                                                   args.lang,
+                                                                   args.transcription_compute,
+                                                                   args.transcription_beam_size,
+                                                                   args.transcription_device))
+                background_process.daemon = True
+                background_process.start()
+                background_process.join()
+                # REMOVE PROCESS FILE
+                os.remove(os.path.join(os.path.abspath(''), 'process.raw'))
+                input("Please press enter to close the program...")
+                exit()
+            except Exception as detail:
+                logging.error(detail)
+                return
         else:
             sys.stdout.write('ERROR' + '\n')
             input("Please press enter to close the program...")
@@ -982,19 +1043,6 @@ def main():
                 logging.debug(line1)
                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
                             call=args.call, command=args.command, jsonfile=args.json)
-    #     elif args.script:
-    #         try:
-    #             source_process = subprocess.Popen(args.script, stdout=subprocess.PIPE)
-    #         except Exception as detail:
-    #             logging.error(detail)
-    #             return
-    #         while True:
-    #             line = source_process.stdout.readline()
-    #             if line:
-    #                 line1 = line.decode('ascii')
-    #                 logging.debug(line1)
-    #                 same_decode(line1, args.lang, same_watch=args.same, event_watch=args.event, text=args.text,
-    #                             call=args.call, command=args.command, jsonfile=args.json)
     else:
         while True:
             for line in sys.stdin:
