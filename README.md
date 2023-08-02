@@ -34,7 +34,7 @@ usage: dsame [-h] [--msg MSG] [--same [SAME [SAME ...]]]
              [--event [EVENT [EVENT ...]]] [--lang LANG]
              [--loglevel {10,20,30,40,50}] [--text] [--no-text] [--version]
              [--call CALL] [--command COMMAND] [--source SOURCE] [--frequency FREQ]
-             [--ppm PPM] [--record PATH] [--transcribe PATH] 
+             [--ppm PPM] [--record PATH] [--audiofile AUDIOFILE] [--transcribe PATH] 
              [--transcription_model {small,medium,large}]
              [--transcription_device {cpu, cuda, auto}] 
              [--transcription_compute {int8, int8_float16, int16, float16, float32}]
@@ -52,11 +52,12 @@ Option            | Description                                                 
 `call`            | Call an external program                                              | `--call alert.sh`
 `lang`            | Selects the language for the program**                                | `--lang EN`
 `command`         | External command line. Omit --call to send to standard output         | `--command "Event Code: {EEE}"`
-`source`          | Source script/program. See /scripts for examples                      | `--source source.sh`
+`source`          | Source script/program. See /scripts for examples                      | `--source source.sh`****
 `frequency`       | Set the RTL_FM frequency (in MHz)                                     | `--frequency 162.475`
 `ppm`             | Set the RTL_FM PPM (Parts Per Million)                                | `--ppm 0`
 `record`          | Records default input and saves the recording to the specified path   | `--record "Recordings"` OR `--record "C:\Recordings"`
-`transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path (THE RECORD OPTION IS REQUIRED FOR THE TRANSCRIBE FEATURE TO WORK) | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
+`transcribe`      | Creates a text file with a transcription of the alert message and saves it to the specified path (THE RECORD OPTION IS REQUIRED FOR THE TRANSCRIBE FEATURE TO WORK)  | `--transcribe "Transcriptions"` OR `--transcribe "C:\Transcriptions"`
+`audiofile`       | Set audio file location when using source type "FILE" (MUST BE IN .WAV FORMAT) | `--audiofile "file.wav"` OR `--audiofile "C:\file.wav"`
 `transcription_model` | Sets the transcription model level*** (The higher the level, the more time and resources it takes) | `--transcription_model medium`
 `transcription_device` | Sets the device used for computation of the transcrtiption model (CURRENTLY, ONLY CPU WORKS) | `--transcription_device cpu`
 `transcription_compute` | Choose the compute method for transcription. NOTE: only certain computation choices will work with certain devices. | `--transcription_device float32`
@@ -64,7 +65,9 @@ Option            | Description                                                 
 
 ** The only available language options so far are English (EN) and Spanish (SP). The program defaults to English. 
 
-*** These models are originally from [guillamekln](https://huggingface.co/guillaumekln). Because of file size limits, the "model.bin" file for "Model/large-v2" is missing. Please download it from [here](https://huggingface.co/guillaumekln/faster-whisper-large-v2/resolve/main/model.bin) and move it to "Model/large-v2". 
+*** These models are originally from [guillamekln](https://huggingface.co/guillaumekln). 
+
+**** Sources are now built into the program and will no longer accept script files. This will be fixed in a later update, and the available options to use are rtl, soundcard, and file
 
 ###Usage
 
